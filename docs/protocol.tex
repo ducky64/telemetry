@@ -1,0 +1,28 @@
+\documentclass[border=10pt,png]{article}
+\usepackage{bytefield}
+\usepackage{color}
+
+\begin{document}
+
+\section{Introduction}
+
+\textcolor{red}{WARNING! This spec is still in BETA and is subject to change.}
+
+\section{Packet Layer}
+The packet layer provides 
+
+\subsection{In-band Signaling over UART Serial Terminal}
+
+
+\begin{bytefield}[bitwidth=1.1em]{32}
+  \bitbox{16}{Start of Frame \\ \tiny{0x05 0x39}}
+  & \bitbox{16}{Data Length \\ \tiny{(in number of bytes)}} \\
+  \wordbox[lrt]{1}{Data} \\
+  \skippedwords \\
+  \wordbox[lrb]{1}{of bytes equal to length above}
+
+\section{Telemetry Protocol Layer}
+
+\end{bytefield}
+
+\end{document}
