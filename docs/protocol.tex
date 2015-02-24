@@ -8,21 +8,27 @@
 
 \textcolor{red}{WARNING! This spec is still in BETA and is subject to change.}
 
+\subsection{General Notes}
+All multi-byte words are defined to be in network ordering (RFC 1700, big endian).
+
 \section{Packet Layer}
-The packet layer provides 
+The packet layer structures data provided by the underlying link layer into an organized packet. Currently, there is only one implementation of this layer.
 
 \subsection{In-band Signaling over UART Serial Terminal}
+This provides embedding telemetry data in a UART serial terminal stream. It is assumed that no ASCII control characters will be transmitted on the same stream as they will be used to delimit telemetry data.
 
+While not required by the spec, the telemetry transmitter may preface each telemetry frame with ANSI commands to prevent serial terminals from displaying the telemetry (gibberish) contents. ANSI conceal and invisible may be used.
 
-\begin{bytefield}[bitwidth=1.1em]{32}
+To prevent terminals from interpreting the telemetry data as ANSI commands, anytime an ANSI escape character (\texttt{0x1b}) appears in the data stream, a null character (\texttt{0x00}) should be added directly afterwards. This should be handled by the packet layer only - the byte will be stuffed at this layer at the transmitter and destuffed at the corresponding layer at the receiver. The data length should not include stuffed bytes.
+
+\begin{bytefield}{32}
   \bitbox{16}{Start of Frame \\ \tiny{0x05 0x39}}
-  & \bitbox{16}{Data Length \\ \tiny{(in number of bytes)}} \\
-  \wordbox[lrt]{1}{Data} \\
+  & \bitbox{16}{Data Length \\ \tiny{(2 bytes, number of bytes in the data)}} \\
+  \wordbox[lrt]{1}{Data \\ \tiny{payload of bytes equal to length above}} \\
   \skippedwords \\
-  \wordbox[lrb]{1}{of bytes equal to length above}
+  \wordbox[lrb]{1}{}
+\end{bytefield}
 
 \section{Telemetry Protocol Layer}
-
-\end{bytefield}
 
 \end{document}
