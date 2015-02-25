@@ -8,6 +8,10 @@
 
 \textcolor{red}{WARNING! This spec is still in BETA and is subject to change.}
 
+
+\subsection{Big Ideas}
+Each piece of data is assigned an ID
+
 \subsection{General Notes}
 All multi-byte words are defined to be in network ordering (RFC 1700, big endian).
 
@@ -22,13 +26,93 @@ While not required by the spec, the telemetry transmitter may preface each telem
 To prevent terminals from interpreting the telemetry data as ANSI commands, anytime an ANSI escape character (\texttt{0x1b}) appears in the data stream, a null character (\texttt{0x00}) should be added directly afterwards. This should be handled by the packet layer only - the byte will be stuffed at this layer at the transmitter and destuffed at the corresponding layer at the receiver. The data length should not include stuffed bytes.
 
 \begin{bytefield}{32}
+  \bitheader{0, 15, 16, 31} \\
   \bitbox{16}{Start of Frame \\ \tiny{0x05 0x39}}
   & \bitbox{16}{Data Length \\ \tiny{(2 bytes, number of bytes in the data)}} \\
   \wordbox[lrt]{1}{Data \\ \tiny{payload of bytes equal to length above}} \\
   \skippedwords \\
-  \wordbox[lrb]{1}{}
+  \wordbox[lrb]{1}{} \\
+  \bitbox{16}{CRC (unimplemented)}
 \end{bytefield}
 
 \section{Telemetry Protocol Layer}
+
+Each telemetry packet is structured as follows:
+
+\begin{bytefield}{16}
+  \bitheader{0, 7, 8, 15} \\
+  \bitbox{8}{Opcode}
+  & \bitbox{8}{Sequence \#} \\
+  \wordbox[lrt]{1}{Data \\ \tiny{length dependent on opcode}} \\
+  \skippedwords \\
+  \wordbox[lrb]{1}{}
+\end{bytefield}
+
+The sequence number is incremeneted by 1 per transmitted packet and should start at zero. This is used to detect dropped packets.
+
+\subsection{Data format for opcode 0x81: Data Definition}
+This is sent to the telemetry client to configure the display. This should be the first telemetry packet sent and should only be sent once (at the start).
+
+\begin{bytefield}{16}
+  \bitheader{0, 7, 8, 15} \\
+  \bitbox{8}{\# Records} \\
+  \wordbox[lrt]{1}{Data headers} \\
+  \skippedwords \\
+  \wordbox[lrb]{1}{}
+\end{bytefield}
+
+Each data header is defined as:
+
+\begin{bytefield}{16}
+  \bitheader{0, 7, 8, 15} \\
+  \bitbox{8}{Data ID}
+  \bitbox{8}{Data type} \\
+  \bitbox{8}{Name length} \\
+  \wordbox[lrt]{1}{Name characters \\ \tiny{ASCII, non null terminated}} \\
+  \skippedwords \\
+  \wordbox[lrb]{1}{} \\
+  \bitbox{8}{\# KV records} \\
+  \wordbox[lrt]{1}{KV records} \\
+  \skippedwords \\
+  \wordbox[lrb]{1}{}
+\end{bytefield}
+
+Each KV record is defined as:
+
+\begin{bytefield}{16}
+  \bitheader{0, 7, 8, 15} \\
+  \bitbox{8}{Record ID} \\
+  \wordbox[lrt]{1}{Record value} \\
+  \skippedwords \\
+  \wordbox[lrb]{1}{} \\
+\end{bytefield}
+
+Record ID meanings are different for each data type. The length and format of the record value is dependent on the record meaning.
+
+\subsection{Data format for opcode 0x01: Data}
+
+\begin{bytefield}{16}
+  \bitheader{0, 7, 8, 15} \\
+  \bitbox{8}{Data ID} \\
+  \wordbox[lrt]{1}{Data value} \\
+  \skippedwords \\
+  \wordbox[lrb]{1}{} \\
+\end{bytefield}
+
+The data value length and format is dependent on the data type, which is defined by the data ID in the header.
+
+\section{Data Types}
+
+\subsection{Int: Data type 0}
+\subsubsection{KV Records}
+Record ID 0: data length (in bytes)
+\subsubsection{Data format}
+Raw data in big endian format.
+
+\subsection{Float: Data type 1}
+\subsubsection{KV Records}
+Record ID 0: data length (in bytes)
+\subsubsection{Data format}
+Raw data in network order.
 
 \end{document}
