@@ -43,22 +43,22 @@ Each telemetry packet is structured as follows:
   \bitheader{0, 7, 8, 15} \\
   \bitbox{8}{Opcode}
   & \bitbox{8}{Sequence \#} \\
-  \wordbox[lrt]{1}{Data \\ \tiny{length dependent on opcode}} \\
+  \wordbox[lrt]{1}{Payload \\ \tiny{length dependent on payload opcode}} \\
   \skippedwords \\
   \wordbox[lrb]{1}{}
 \end{bytefield}
 
-The sequence number is incremeneted by 1 per transmitted packet and should start at zero. This is used to detect dropped packets.
+The sequence number is incremeneted by 1 per transmitted packet (rolling over at the maximum of 255) and should start at zero. This is used to detect network errors like dropped packets. No ARQ protocol is currently specified.
 
-\subsection{Data format for opcode 0x81: Data Definition}
-This is sent to the telemetry client to configure the display. This should be the first telemetry packet sent and should only be sent once (at the start).
+\subsection{Payload format for opcode 0x81: Data Definition}
+This is sent to the telemetry client to configure the display. This should be the first telemetry packet sent and must be comprehensive (all data IDs are sent, populated with all immutable fields). After initial configuration, this packet may be transmitted (in either direction) to update mutable fields.
 
 \begin{bytefield}{16}
   \bitheader{0, 7, 8, 15} \\
-  \bitbox{8}{\# Records} \\
   \wordbox[lrt]{1}{Data headers} \\
   \skippedwords \\
-  \wordbox[lrb]{1}{}
+  \wordbox[lrb]{1}{} \\
+  \bitbox{8}{0x00 \\ \tiny{terminator ``record''}} \\
 \end{bytefield}
 
 Each data header is defined as:
@@ -67,15 +67,13 @@ Each data header is defined as:
   \bitheader{0, 7, 8, 15} \\
   \bitbox{8}{Data ID}
   \bitbox{8}{Data type} \\
-  \bitbox{8}{Name length} \\
-  \wordbox[lrt]{1}{Name characters \\ \tiny{ASCII, non null terminated}} \\
-  \skippedwords \\
-  \wordbox[lrb]{1}{} \\
-  \bitbox{8}{\# KV records} \\
   \wordbox[lrt]{1}{KV records} \\
   \skippedwords \\
-  \wordbox[lrb]{1}{}
+  \wordbox[lrb]{1}{} \\
+  \bitbox{8}{0x00 \\ \tiny{terminator ``record''}} \\
 \end{bytefield}
+
+Data IDs may not exceed 127 (allowing varints to be used in future implementations, as necessary). The Data ID of 0 is reserved as a terminator.
 
 Each KV record is defined as:
 
@@ -87,31 +85,32 @@ Each KV record is defined as:
   \wordbox[lrb]{1}{} \\
 \end{bytefield}
 
-Record ID meanings are different for each data type. The length and format of the record value is dependent on the record meaning.
+Record IDs may not exceed 127 (allowing varints to be used in future implementations, as necessary). The Record ID of 0 is reserved as a terminator. \\
+Record ID meanings are different for each data type. The length and format of the record value is dependent on the record meaning. \\
+Record IDs 1-63 (0x01-0x7f) are reserved for common global records definitions. IDs from 64 onwards are free to be defined per data type.
 
-\subsection{Data format for opcode 0x01: Data}
+\subsubsection{Global Records IDs}
+Record values are immutable (can't be updated after the initial header is sent), unless otherwise noted.
 
-\begin{bytefield}{16}
-  \bitheader{0, 7, 8, 15} \\
-  \bitbox{8}{Data ID} \\
-  \wordbox[lrt]{1}{Data value} \\
-  \skippedwords \\
-  \wordbox[lrb]{1}{} \\
-\end{bytefield}
+0x00: reserved (terminator) \\
+0x01: internal name, as a null-terminated string, default to data ID \\
+0x02: display (user-friendly) name, as a null-terminated string, default to internal name \\
+0x03: units, as a null-terminated string, default "" \\
 
-The data value length and format is dependent on the data type, which is defined by the data ID in the header.
+0x08: override on/off, one byte as a boolean flag (nonzero is TRUE), default is 0, mutable \\
+0x09: override data, same format as data value (based on data type), default dependent on data type, mutable \\
 
 \section{Data Types}
 
 \subsection{Int: Data type 0}
 \subsubsection{KV Records}
-Record ID 0: data length (in bytes)
+Record ID 64: data length (in bytes)
 \subsubsection{Data format}
 Raw data in big endian format.
 
 \subsection{Float: Data type 1}
 \subsubsection{KV Records}
-Record ID 0: data length (in bytes)
+Record ID 64: data length (in bytes, only 4 ({\texttt float}) and 8 ({\texttt double}) are valid)
 \subsubsection{Data format}
 Raw data in network order.
 
