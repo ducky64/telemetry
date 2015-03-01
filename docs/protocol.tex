@@ -87,7 +87,7 @@ Each KV record is defined as:
 
 Record IDs may not exceed 127 (allowing varints to be used in future implementations, as necessary). The Record ID of 0 is reserved as a terminator. \\
 Record ID meanings are different for each data type. The length and format of the record value is dependent on the record meaning. \\
-Record IDs 1-63 (0x01-0x7f) are reserved for common global records definitions. IDs from 64 onwards are free to be defined per data type.
+Record IDs 1-63 (0x01-0x3f) are reserved for common global records definitions. IDs from 64 onwards are free to be defined per data type.
 
 \subsubsection{Global Records IDs}
 Record values are immutable (can't be updated after the initial header is sent), unless otherwise noted.
@@ -104,13 +104,13 @@ Record values are immutable (can't be updated after the initial header is sent),
 
 \subsection{Int: Data type 0}
 \subsubsection{KV Records}
-Record ID 64: data length (in bytes)
+Record ID 0x40: data length (in bytes)
 \subsubsection{Data format}
-Raw data in big endian format.
+Raw data in network order.
 
 \subsection{Float: Data type 1}
 \subsubsection{KV Records}
-Record ID 64: data length (in bytes, only 4 ({\texttt float}) and 8 ({\texttt double}) are valid)
+Record ID 0x40: data length (in bytes, only 4 ({\texttt float}) and 8 ({\texttt double}) are valid)
 \subsubsection{Data format}
 Raw data in network order.
 
