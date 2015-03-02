@@ -10,6 +10,11 @@ namespace telemetry {
 // Used for array sizing.
 const size_t MAX_DATA_PER_TELEMETRY = 16;
 
+const uint8_t OPCODE_HEADER = 0x81;
+const uint8_t OPCODE_DATA = 0x01;
+
+const uint8_t DATAID_TERMINATOR = 0x00;
+
 // Hardware abstraction layer for the telemetry server.
 class HalInterface {
 public:
@@ -51,7 +56,7 @@ public:
 
   // Finish the packet and writes data to the transmit stream (if not already
   // done). No more data may be written afterwards.
-  virtual void finish_packet() = 0;
+  virtual void finish() = 0;
 };
 
 // Abstract base class for telemetry data objects.
@@ -59,10 +64,13 @@ class DataInterface {
 public:
   virtual ~DataInterface() {}
 
-  // Returns the length of the header, in bytes.
-  virtual size_t get_header_length() = 0;
-  // Writes the header to the transmit packet.
-  virtual void write_header(TransmitPacketInterface& packet) = 0;
+  // Returns the data type code.
+  virtual uint8_t get_data_type() = 0;
+
+  // Returns the length of the header KVRs, in bytes.
+  virtual size_t get_header_kvrs_length() = 0;
+  // Writes the header KVRs to the transmit packet.
+  virtual void write_header_kvrs(TransmitPacketInterface& packet) = 0;
 
   // Returns the length of the payload, in bytes. Should be "fast".
   virtual size_t get_payload_length() = 0;
@@ -76,10 +84,12 @@ public:
   Telemetry(HalInterface& hal) :
     hal(hal),
     data_count(0),
-    header_transmitted(false) {};
+    header_transmitted(false),
+    packet_tx_sequence(0),
+    packet_rx_sequence(0) {};
 
   // Associates a DataInterface with this object.
-  void add_data(DataInterface& data);
+  void add_data(DataInterface& new_data);
 
   // Transmits header data. Must be called after all add_data calls are done
   // and before and IO is done.
@@ -88,13 +98,24 @@ public:
   // Does IO, including transmitting telemetry packets. Should be called on
   // a regular basis. Since this does IO, this may block depending on the HAL
   // semantics.
-  void do_io();
+  void do_io() {
+    transmit_data();
+    process_received_data();
+  }
 
   // TODO: better docs defining in-band receive.
   // Returns the number of bytes available in the receive stream.
   size_t receive_available();
   // Returns the next byte in the receive stream.
   uint8_t read_receive();
+
+  // Calls the HAL's error function if some condition is false.
+  void error_assert(bool condition, const char* message) {
+    if (!condition) {hal.error(message);}
+  }
+  void error(const char* message) {
+    hal.error(message);
+  }
 
 protected:
   // Transmits any updated data.
@@ -106,12 +127,17 @@ protected:
 
   HalInterface& hal;
 
-  // Array of associated DataInterface objects.
+  // Array of associated DataInterface objects. The index+1 is the
+  // DataInterface's data ID field.
   DataInterface* data[MAX_DATA_PER_TELEMETRY];
   // Count of associated DataInterface objects.
   size_t data_count;
 
   bool header_transmitted;
+
+  // Sequence number of the next packet to be transmitted.
+  uint8_t packet_tx_sequence;
+  uint8_t packet_rx_sequence;
 };
 
 // A telemetry packet with a length known before data is written to it.
@@ -127,14 +153,16 @@ public:
   void write_float(float data);
   void write_double(double data);
 
-  void finish_packet() = 0;
+  void finish();
 };
 
 // Telemetry data for integer types (uint8_t, uint16_t, ...).
 template <typename T> class IntData : public DataInterface {
 public:
-  size_t get_header_length();
-  void write_header(TransmitPacketInterface& packet);
+  uint8_t get_data_type() { return 0; }
+
+  size_t get_header_kvrs_length();
+  void write_header_kvrs(TransmitPacketInterface& packet);
 
   size_t get_payload_length();
   void write_payload(TransmitPacketInterface& packet);
@@ -145,8 +173,10 @@ protected:
 // Telemetry data for float types (float, double).
 template <typename T> class FloatData : public DataInterface {
 public:
-  size_t get_header_length();
-  void write_header(TransmitPacketInterface& packet);
+  uint8_t get_data_type() { return 1; }
+
+  size_t get_header_kvrs_length();
+  void write_header_kvrs(TransmitPacketInterface& packet);
 
   size_t get_payload_length();
   void write_payload(TransmitPacketInterface& packet);
