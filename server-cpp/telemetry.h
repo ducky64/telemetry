@@ -23,6 +23,9 @@ const uint8_t OPCODE_DATA = 0x01;
 
 const uint8_t DATAID_TERMINATOR = 0x00;
 
+const uint8_t DATATYPE_INT = 0x00;
+const uint8_t DATATYPE_FLOAT = 0x01;
+
 const uint8_t RECORDID_TERMINATOR = 0x00;
 const uint8_t RECORDID_INTERNAL_NAME = 0x01;
 const uint8_t RECORDID_DISPLAY_NAME = 0x02;
@@ -30,6 +33,9 @@ const uint8_t RECORDID_UNITS = 0x03;
 
 const uint8_t RECORDID_OVERRIDE_CTL = 0x08;
 const uint8_t RECORDID_OVERRIDE_DATA = 0x08;
+
+const uint8_t RECORDID_INT_LENGTH = 0x40;
+const uint8_t RECORDID_FLOAT_LENGTH = 0x40;
 
 // Hardware abstraction layer for the telemetry server.
 class HalInterface {
@@ -228,7 +234,10 @@ public:
       const char* units):
       PrimitiveData<T>(internal_name, display_name, units) {}
 
-  uint8_t get_data_type() { return 0; }
+  uint8_t get_data_type() { return DATATYPE_INT; }
+
+  size_t get_header_kvrs_length();
+  void write_header_kvrs(TransmitPacketInterface& packet);
 
   size_t get_payload_length();
   void write_payload(TransmitPacketInterface& packet);
@@ -239,7 +248,7 @@ protected:
 // Telemetry data for float types (float, double).
 template <typename T> class FloatData : public PrimitiveData<T> {
 public:
-  uint8_t get_data_type() { return 1; }
+  uint8_t get_data_type() { return DATATYPE_FLOAT; }
 
   size_t get_payload_length();
   void write_payload(TransmitPacketInterface& packet);

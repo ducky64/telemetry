@@ -32,6 +32,19 @@ void Data::write_header_kvrs(TransmitPacketInterface& packet) {
   packet_write_string(packet, units);
 }
 
+template<typename T>
+size_t IntData<T>::get_header_kvrs_length() {
+  return Data::get_header_kvrs_length()
+      + 1 + 1;  // data length
+}
+
+template<typename T>
+void IntData<T>::write_header_kvrs(TransmitPacketInterface& packet) {
+  Data::write_header_kvrs(packet);
+  packet.write_uint8(RECORDID_INT_LENGTH);
+  packet.write_uint8(get_payload_length());
+}
+
 template<>
 size_t IntData<uint8_t>::get_payload_length() {
   return 1;
