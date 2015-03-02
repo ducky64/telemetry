@@ -10,6 +10,14 @@ namespace telemetry {
 // Used for array sizing.
 const size_t MAX_DATA_PER_TELEMETRY = 16;
 
+// Maximum payload size for telemetry packet.
+const size_t MAX_PACKET_LENGTH = 65535;
+
+// Various wire protocol constants.
+const uint8_t SOF1 = 0x05;  // start of frame byte 1
+const uint8_t SOF2 = 0x39;  // start of frame byte 2
+// TODO: make these length independent
+
 const uint8_t OPCODE_HEADER = 0x81;
 const uint8_t OPCODE_DATA = 0x01;
 
@@ -51,8 +59,6 @@ public:
   virtual void write_uint32(uint32_t data) = 0;
   // Writes a float to the packet stream.
   virtual void write_float(float data) = 0;
-  // Writes a double to the packet stream.
-  virtual void write_double(double data) = 0;
 
   // Finish the packet and writes data to the transmit stream (if not already
   // done). No more data may be written afterwards.
@@ -145,15 +151,26 @@ protected:
 // buffering. Assumes transmit buffers won't fill up.
 class FixedLengthTransmitPacket : public TransmitPacketInterface {
 public:
-  FixedLengthTransmitPacket(size_t length);
+  FixedLengthTransmitPacket(HalInterface& hal, size_t length);
 
   void write_uint8(uint8_t data);
   void write_uint16(uint16_t data);
   void write_uint32(uint32_t data);
   void write_float(float data);
-  void write_double(double data);
 
   void finish();
+
+protected:
+  // Predetermined length, in bytes, of this packet's payload, for sanity check.
+  size_t length;
+
+  // Current length, in bytes, of this packet's payload.
+  size_t count;
+
+  // Is the packet valid?
+  bool valid;
+
+  HalInterface& hal;
 };
 
 // Telemetry data for integer types (uint8_t, uint16_t, ...).
