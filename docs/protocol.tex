@@ -98,7 +98,29 @@ Record values are immutable (can't be updated after the initial header is sent),
 0x03: units, as a null-terminated string, default "" \\
 
 0x08: override on/off, one byte as a boolean flag (nonzero is TRUE), default is 0, mutable \\
-0x09: override data, same format as data value (based on data type), default dependent on data type, mutable \\
+0x09: override data, same format as data value (based on data type), default dependent on data type, mutable
+
+\subsection{Data format for opcode 0x01: Data}
+
+\begin{bytefield}{16}
+  \bitheader{0, 7, 8, 15} \\
+  \wordbox[lrt]{1}{Data records} \\
+  \skippedwords \\
+  \wordbox[lrb]{1}{} \\
+  \bitbox{8}{0x00 \\ \tiny{terminator ``record''}} \\
+\end{bytefield}
+
+Each data record is defined as:
+
+\begin{bytefield}{16}
+  \bitheader{0, 7, 8, 15} \\
+  \bitbox{8}{Data ID} \\
+  \wordbox[lrt]{1}{Data value} \\
+  \skippedwords \\
+  \wordbox[lrb]{1}{} \\
+\end{bytefield}
+
+The data value length and format is dependent on the data type, which is defined by the data ID in the header.
 
 \section{Data Types}
 
