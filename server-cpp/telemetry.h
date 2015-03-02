@@ -226,7 +226,7 @@ template <typename T> class IntData : public PrimitiveData<T> {
 public:
   IntData(const char* internal_name, const char* display_name,
       const char* units):
-      PrimitiveData(internal_name, display_name, units) {}
+      PrimitiveData<T>(internal_name, display_name, units) {}
 
   uint8_t get_data_type() { return 0; }
 

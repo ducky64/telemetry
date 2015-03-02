@@ -32,4 +32,31 @@ void Data::write_header_kvrs(TransmitPacketInterface& packet) {
   packet_write_string(packet, units);
 }
 
+template<>
+size_t IntData<uint8_t>::get_payload_length() {
+  return 1;
+}
+template<>
+void IntData<uint8_t>::write_payload(TransmitPacketInterface& packet) {
+  packet.write_uint8(*this);
+}
+
+template<>
+size_t IntData<uint16_t>::get_payload_length() {
+  return 2;
+}
+template<>
+void IntData<uint16_t>::write_payload(TransmitPacketInterface& packet) {
+  packet.write_uint16(*this);
+}
+
+template<>
+size_t IntData<uint32_t>::get_payload_length() {
+  return 4;
+}
+template<>
+void IntData<uint32_t>::write_payload(TransmitPacketInterface& packet) {
+  packet.write_uint32(*this);
+}
+
 }
