@@ -194,13 +194,41 @@ protected:
   HalInterface& hal;
 };
 
-// Telemetry data for integer types (uint8_t, uint16_t, ...).
-template <typename T> class IntData : public Data {
+template <typename T> class PrimitiveData : public Data {
 public:
-  uint8_t get_data_type() { return 0; }
+  PrimitiveData(const char* internal_name, const char* display_name,
+      const char* units):
+      Data(internal_name, display_name, units) {}
 
-  size_t get_header_kvrs_length();
-  void write_header_kvrs(TransmitPacketInterface& packet);
+  PrimitiveData& operator =(const T& b) {
+    value = b;
+    return *this;
+    // TODO: mark as updated here
+  }
+
+  operator T() {
+    if (overload_enabled) {
+      return overloaded_value;
+    } else {
+      return value;
+    }
+  }
+
+protected:
+  T overloaded_value;
+  bool overload_enabled;
+
+  T value;
+};
+
+// Telemetry data for integer types (uint8_t, uint16_t, ...).
+template <typename T> class IntData : public PrimitiveData<T> {
+public:
+  IntData(const char* internal_name, const char* display_name,
+      const char* units):
+      PrimitiveData(internal_name, display_name, units) {}
+
+  uint8_t get_data_type() { return 0; }
 
   size_t get_payload_length();
   void write_payload(TransmitPacketInterface& packet);
@@ -209,12 +237,9 @@ protected:
 };
 
 // Telemetry data for float types (float, double).
-template <typename T> class FloatData : public Data {
+template <typename T> class FloatData : public PrimitiveData<T> {
 public:
   uint8_t get_data_type() { return 1; }
-
-  size_t get_header_kvrs_length();
-  void write_header_kvrs(TransmitPacketInterface& packet);
 
   size_t get_payload_length();
   void write_payload(TransmitPacketInterface& packet);
