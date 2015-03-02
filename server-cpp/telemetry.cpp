@@ -11,7 +11,7 @@
 
 namespace telemetry {
 
-void Telemetry::add_data(DataInterface& new_data) {
+void Telemetry::add_data(Data& new_data) {
   if (data_count >= MAX_DATA_PER_TELEMETRY) {
     error("MAX_DATA_PER_TELEMETRY limit reached.");
     return;
@@ -34,7 +34,7 @@ void Telemetry::transmit_header() {
   for (int data_idx = 0; data_idx < data_count; data_idx++) {
     packet_legnth += 2; // data ID, data type
     packet_legnth += data[data_idx]->get_header_kvrs_length();
-    // TODO: assert length is never zero?
+    packet_legnth += 1; // terminator record id
   }
   packet_legnth++;  // terminator "record"
 
@@ -46,6 +46,7 @@ void Telemetry::transmit_header() {
     packet.write_uint8(data_idx+1);
     packet.write_uint8(data[data_idx]->get_data_type());
     data[data_idx]->write_header_kvrs(packet);
+    packet.write_uint8(RECORDID_TERMINATOR);
   }
   packet.write_uint8(DATAID_TERMINATOR);
 

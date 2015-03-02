@@ -23,6 +23,14 @@ const uint8_t OPCODE_DATA = 0x01;
 
 const uint8_t DATAID_TERMINATOR = 0x00;
 
+const uint8_t RECORDID_TERMINATOR = 0x00;
+const uint8_t RECORDID_INTERNAL_NAME = 0x01;
+const uint8_t RECORDID_DISPLAY_NAME = 0x02;
+const uint8_t RECORDID_UNITS = 0x03;
+
+const uint8_t RECORDID_OVERRIDE_CTL = 0x08;
+const uint8_t RECORDID_OVERRIDE_DATA = 0x08;
+
 // Hardware abstraction layer for the telemetry server.
 class HalInterface {
 public:
@@ -66,22 +74,35 @@ public:
 };
 
 // Abstract base class for telemetry data objects.
-class DataInterface {
+class Data {
 public:
-  virtual ~DataInterface() {}
+  Data(const char* internal_name, const char* display_name,
+      const char* units):
+      internal_name(internal_name),
+      display_name(display_name),
+      units(units) {};
+
+  virtual ~Data() {}
 
   // Returns the data type code.
   virtual uint8_t get_data_type() = 0;
 
-  // Returns the length of the header KVRs, in bytes.
-  virtual size_t get_header_kvrs_length() = 0;
-  // Writes the header KVRs to the transmit packet.
-  virtual void write_header_kvrs(TransmitPacketInterface& packet) = 0;
+  // Returns the length of the header KVRs, in bytes. Does not include the
+  // terminator header.
+  virtual size_t get_header_kvrs_length();
+  // Writes the header KVRs to the transmit packet. Does not write the
+  // terminiator header.
+  virtual void write_header_kvrs(TransmitPacketInterface& packet);
 
   // Returns the length of the payload, in bytes. Should be "fast".
   virtual size_t get_payload_length() = 0;
   // Writes the payload to the transmit packet. Should be "fast".
   virtual void write_payload(TransmitPacketInterface& packet) = 0;
+
+protected:
+  const char* internal_name;
+  const char* display_name;
+  const char* units;
 };
 
 // Telemetry Server object.
@@ -95,7 +116,7 @@ public:
     packet_rx_sequence(0) {};
 
   // Associates a DataInterface with this object.
-  void add_data(DataInterface& new_data);
+  void add_data(Data& new_data);
 
   // Transmits header data. Must be called after all add_data calls are done
   // and before and IO is done.
@@ -135,7 +156,7 @@ protected:
 
   // Array of associated DataInterface objects. The index+1 is the
   // DataInterface's data ID field.
-  DataInterface* data[MAX_DATA_PER_TELEMETRY];
+  Data* data[MAX_DATA_PER_TELEMETRY];
   // Count of associated DataInterface objects.
   size_t data_count;
 
@@ -174,7 +195,7 @@ protected:
 };
 
 // Telemetry data for integer types (uint8_t, uint16_t, ...).
-template <typename T> class IntData : public DataInterface {
+template <typename T> class IntData : public Data {
 public:
   uint8_t get_data_type() { return 0; }
 
@@ -188,7 +209,7 @@ protected:
 };
 
 // Telemetry data for float types (float, double).
-template <typename T> class FloatData : public DataInterface {
+template <typename T> class FloatData : public Data {
 public:
   uint8_t get_data_type() { return 1; }
 
