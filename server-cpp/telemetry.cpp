@@ -13,11 +13,11 @@ namespace telemetry {
 
 void Telemetry::add_data(Data& new_data) {
   if (data_count >= MAX_DATA_PER_TELEMETRY) {
-    error("MAX_DATA_PER_TELEMETRY limit reached.");
+    do_error("MAX_DATA_PER_TELEMETRY limit reached.");
     return;
   }
   if (header_transmitted) {
-    error("Cannot add new data after header transmitted.");
+    do_error("Cannot add new data after header transmitted.");
     return;
   }
   data[data_count] = &new_data;
@@ -26,7 +26,7 @@ void Telemetry::add_data(Data& new_data) {
 
 void Telemetry::transmit_header() {
   if (header_transmitted) {
-    error("Cannot retransmit header.");
+    do_error("Cannot retransmit header.");
     return;
   }
 
@@ -56,9 +56,14 @@ void Telemetry::transmit_header() {
   header_transmitted = true;
 }
 
+void Telemetry::do_io() {
+  transmit_data();
+  process_received_data();
+}
+
 void Telemetry::transmit_data() {
   if (!header_transmitted) {
-    error("Must transmit header before transmitting data.");
+    do_error("Must transmit header before transmitting data.");
     return;
   }
 
@@ -104,7 +109,7 @@ FixedLengthTransmitPacket::FixedLengthTransmitPacket(HalInterface& hal,
         length(length),
         count(0) {
   if (length > MAX_PACKET_LENGTH) {
-    hal.error("Packet exceeds maximum length");
+    hal.do_error("Packet exceeds maximum length");
     valid = false;
     return;
   }
@@ -120,10 +125,10 @@ FixedLengthTransmitPacket::FixedLengthTransmitPacket(HalInterface& hal,
 
 void FixedLengthTransmitPacket::write_uint8(uint8_t data) {
   if (!valid) {
-    hal.error("Writing to invalid packet");
+    hal.do_error("Writing to invalid packet");
     return;
   } else if (count + 1 > length) {
-    hal.error("Writing over packet length");
+    hal.do_error("Writing over packet length");
     return;
   }
   hal.transmit_byte(data);
@@ -132,10 +137,10 @@ void FixedLengthTransmitPacket::write_uint8(uint8_t data) {
 
 void FixedLengthTransmitPacket::write_uint16(uint16_t data) {
   if (!valid) {
-    hal.error("Writing to invalid packet");
+    hal.do_error("Writing to invalid packet");
     return;
   } else if (count + 2 > length) {
-    hal.error("Writing over packet length");
+    hal.do_error("Writing over packet length");
     return;
   }
   hal.transmit_byte((data >> 8) & 0xff);
@@ -145,10 +150,10 @@ void FixedLengthTransmitPacket::write_uint16(uint16_t data) {
 
 void FixedLengthTransmitPacket::write_uint32(uint32_t data) {
   if (!valid) {
-    hal.error("Writing to invalid packet");
+    hal.do_error("Writing to invalid packet");
     return;
   } else if (count + 4 > length) {
-    hal.error("Writing over packet length");
+    hal.do_error("Writing over packet length");
     return;
   }
   hal.transmit_byte((data >> 24) & 0xff);
@@ -160,10 +165,10 @@ void FixedLengthTransmitPacket::write_uint32(uint32_t data) {
 
 void FixedLengthTransmitPacket::write_float(float data) {
   if (!valid) {
-    hal.error("Writing to invalid packet");
+    hal.do_error("Writing to invalid packet");
     return;
   } else if (count + 4 > length) {
-    hal.error("Writing over packet length");
+    hal.do_error("Writing over packet length");
     return;
   }
   // TODO: THIS IS ENDIANNESS DEPENDENT, ABSTRACT INTO HAL?
@@ -177,9 +182,9 @@ void FixedLengthTransmitPacket::write_float(float data) {
 
 void FixedLengthTransmitPacket::finish() {
   if (!valid) {
-    hal.error("Finishing invalid packet");
+    hal.do_error("Finishing invalid packet");
   } else if (count != length) {
-    hal.error("Packet under length");
+    hal.do_error("Packet under length");
   }
 
   // TODO: add CRC check here

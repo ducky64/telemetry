@@ -55,7 +55,7 @@ public:
   virtual uint32_t get_time_us() = 0;
 
   // Called on a telemetry error.
-  virtual void error(const char* message) = 0;
+  virtual void do_error(const char* message) = 0;
 };
 
 // Abstract base class for building a packet to be transmitted.
@@ -131,10 +131,7 @@ public:
   // Does IO, including transmitting telemetry packets. Should be called on
   // a regular basis. Since this does IO, this may block depending on the HAL
   // semantics.
-  void do_io() {
-    transmit_data();
-    process_received_data();
-  }
+  void do_io();
 
   // TODO: better docs defining in-band receive.
   // Returns the number of bytes available in the receive stream.
@@ -143,11 +140,8 @@ public:
   uint8_t read_receive();
 
   // Calls the HAL's error function if some condition is false.
-  void error_assert(bool condition, const char* message) {
-    if (!condition) {hal.error(message);}
-  }
-  void error(const char* message) {
-    hal.error(message);
+  void do_error(const char* message) {
+    hal.do_error(message);
   }
 
 protected:
@@ -180,14 +174,16 @@ class FixedLengthTransmitPacket : public TransmitPacketInterface {
 public:
   FixedLengthTransmitPacket(HalInterface& hal, size_t length);
 
-  void write_uint8(uint8_t data);
-  void write_uint16(uint16_t data);
-  void write_uint32(uint32_t data);
-  void write_float(float data);
+  virtual void write_uint8(uint8_t data);
+  virtual void write_uint16(uint16_t data);
+  virtual void write_uint32(uint32_t data);
+  virtual void write_float(float data);
 
-  void finish();
+  virtual void finish();
 
 protected:
+  HalInterface& hal;
+
   // Predetermined length, in bytes, of this packet's payload, for sanity check.
   size_t length;
 
@@ -196,8 +192,6 @@ protected:
 
   // Is the packet valid?
   bool valid;
-
-  HalInterface& hal;
 };
 
 template <typename T> class PrimitiveData : public Data {
@@ -234,13 +228,13 @@ public:
       const char* units):
       PrimitiveData<T>(internal_name, display_name, units) {}
 
-  uint8_t get_data_type() { return DATATYPE_INT; }
+  virtual uint8_t get_data_type() { return DATATYPE_INT; }
 
-  size_t get_header_kvrs_length();
-  void write_header_kvrs(TransmitPacketInterface& packet);
+  virtual size_t get_header_kvrs_length();
+  virtual void write_header_kvrs(TransmitPacketInterface& packet);
 
-  size_t get_payload_length();
-  void write_payload(TransmitPacketInterface& packet);
+  virtual size_t get_payload_length();
+  virtual void write_payload(TransmitPacketInterface& packet);
 
 protected:
 };
@@ -248,10 +242,10 @@ protected:
 // Telemetry data for float types (float, double).
 template <typename T> class FloatData : public PrimitiveData<T> {
 public:
-  uint8_t get_data_type() { return DATATYPE_FLOAT; }
+  virtual uint8_t get_data_type() { return DATATYPE_FLOAT; }
 
-  size_t get_payload_length();
-  void write_payload(TransmitPacketInterface& packet);
+  virtual size_t get_payload_length();
+  virtual void write_payload(TransmitPacketInterface& packet);
 
 protected:
 };
