@@ -11,6 +11,7 @@
 
 namespace telemetry {
 void packet_write_string(TransmitPacketInterface& packet, const char* str) {
+  // TODO: move into HAL for higher performance?
   while (*str != '\0') {
     packet.write_uint8(*str);
     str++;
