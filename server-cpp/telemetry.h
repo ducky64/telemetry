@@ -51,9 +51,6 @@ public:
 
   // TODO: more efficient block transmit operations?
 
-  // Returns the current system time in us. Rollover is handled gracefully.
-  virtual uint32_t get_time_us() = 0;
-
   // Called on a telemetry error.
   virtual void do_error(const char* message) = 0;
 };
@@ -200,9 +197,9 @@ public:
       const char* units):
       Data(internal_name, display_name, units) {}
 
-  PrimitiveData& operator =(const T& b) {
-    value = b;
-    return *this;
+  T operator = (T b) {
+    this->value = b;
+    return b;
     // TODO: mark as updated here
   }
 
@@ -227,6 +224,11 @@ public:
   IntData(const char* internal_name, const char* display_name,
       const char* units):
       PrimitiveData<T>(internal_name, display_name, units) {}
+
+  // TODO: figure out why this needs to be here and make it DRY
+  T operator = (T b) {
+    PrimitiveData<T>::operator =(b);
+  }
 
   virtual uint8_t get_data_type() { return DATATYPE_INT; }
 
