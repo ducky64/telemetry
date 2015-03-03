@@ -83,23 +83,22 @@ class TelemetryPacketDecoder():
     return TelemetryPacket(opcode, sequence, payload)
     
   def decode_header_packet(self):
-    data_headers = []
+    data_headers = {}
     next_data_header = self.decode_data_header()
     while next_data_header != DATAID_TERMINATOR:
-      data_headers.append(next_data_header)
+      data_headers[next_data_header.data_id] = next_data_header
       next_data_header = self.decode_data_header()      
     return HeaderPacket(data_headers) 
 
   def decode_data_header(self):
-    kvrs = []
+    kvrs = {}
     data_id = self.read_uint8()
     if data_id == DATAID_TERMINATOR:
       return DATAID_TERMINATOR
     data_type = self.read_uint8()
     next_kvr = self.decode_kvr(data_type)
     while next_kvr != RECORDID_TERMINATOR:
-      print(next_kvr)
-      kvrs.append(next_kvr)
+      kvrs[next_kvr.record_id] = next_kvr
       next_kvr = self.decode_kvr(data_type)
     return DataHeader(data_id, data_type, kvrs)
 
