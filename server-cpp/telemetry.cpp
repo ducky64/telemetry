@@ -76,7 +76,7 @@ void Telemetry::transmit_data() {
 
   FixedLengthTransmitPacket packet(hal, packet_legnth);
 
-  packet.write_uint8(OPCODE_HEADER);
+  packet.write_uint8(OPCODE_DATA);
   packet.write_uint8(packet_tx_sequence);
   for (int data_idx = 0; data_idx < data_count; data_idx++) {
     packet.write_uint8(data_idx+1);

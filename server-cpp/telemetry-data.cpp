@@ -16,12 +16,13 @@ void packet_write_string(TransmitPacketInterface& packet, const char* str) {
     packet.write_uint8(*str);
     str++;
   }
+  packet.write_uint8('\0');
 }
 
 size_t Data::get_header_kvrs_length() {
-  return 1 + strlen(internal_name)
-      + 1 + strlen(display_name)
-      + 1 + strlen(units);
+  return 1 + strlen(internal_name) + 1
+      + 1 + strlen(display_name) + 1
+      + 1 + strlen(units) + 1;
 }
 
 void Data::write_header_kvrs(TransmitPacketInterface& packet) {
