@@ -54,18 +54,22 @@ class TelemetryPacketDecoder():
     self.bytes = bytes
 
   def read_uint8(self):
+    # TODO: handle overflow
     return self.bytes.popleft()
   
   def read_uint16(self):
+    # TODO: handle overflow
     return self.bytes.popleft() << 8 | self.bytes.popleft()
 
   def read_uint32(self):
+    # TODO: handle overflow
     return (self.bytes.popleft() << 24 
            | self.bytes.popleft() << 16
            | self.bytes.popleft() << 8
            | self.bytes.popleft())
   
   def read_string(self):
+    # TODO: handle overflow
     outstr = ""
     data = self.bytes.popleft()
     while data:
@@ -144,8 +148,8 @@ class TelemetryPacketDecoder():
     pass
 
 class TelemetrySerial:
-  def __init__(self, port):
-    self.serial = serial.Serial(port)
+  def __init__(self, serial):
+    self.serial = serial
     
     self.rx_packets = deque()  # queued decoded packets
     
@@ -171,6 +175,8 @@ class TelemetrySerial:
             self.decoder_state = DecoderState.LENGTH
         else:
           self.data_buffer.extend(self.packet_buffer)
+          for byte in self.packet_buffer:
+            print(chr(byte), end="")
           self.packet_buffer = deque()
           self.decoder_pos = 0
       elif self.decoder_state == DecoderState.LENGTH:
@@ -186,6 +192,7 @@ class TelemetrySerial:
         if self.decoder_pos == self.packet_length:
           decoded = TelemetryPacketDecoder(self.packet_buffer).decode()
           self.rx_packets.append(decoded)
+          print("")
           print(decoded)
           self.packet_buffer = deque()
           
@@ -195,7 +202,7 @@ class TelemetrySerial:
         raise RuntimeError("Unknown DecoderState")    
 
 if __name__ == "__main__":
-  telemetry = TelemetrySerial("COM14")
+  telemetry = TelemetrySerial(serial.Serial("COM61", baudrate=1000000))
   while True:
     telemetry.process_rx()
     time.sleep(0.1)
