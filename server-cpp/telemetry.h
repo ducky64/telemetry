@@ -23,8 +23,8 @@ const uint8_t OPCODE_DATA = 0x01;
 
 const uint8_t DATAID_TERMINATOR = 0x00;
 
-const uint8_t DATATYPE_INT = 0x00;
-const uint8_t DATATYPE_FLOAT = 0x01;
+const uint8_t DATATYPE_NUMERIC = 0x01;
+const uint8_t DATATYPE_NUMERIC_ARRAY = 0x02;
 
 const uint8_t RECORDID_TERMINATOR = 0x00;
 const uint8_t RECORDID_INTERNAL_NAME = 0x01;
@@ -34,8 +34,12 @@ const uint8_t RECORDID_UNITS = 0x03;
 const uint8_t RECORDID_OVERRIDE_CTL = 0x08;
 const uint8_t RECORDID_OVERRIDE_DATA = 0x08;
 
-const uint8_t RECORDID_INT_LENGTH = 0x40;
-const uint8_t RECORDID_FLOAT_LENGTH = 0x40;
+const uint8_t RECORDID_NUMERIC_SUBTYPE = 0x40;
+const uint8_t RECORDID_NUMERIC_LENGTH = 0x41;
+
+const uint8_t NUMERIC_SUBTYPE_UINT = 0x01;
+const uint8_t NUMERIC_SUBTYPE_SINT = 0x02;
+const uint8_t NUMERIC_SUBTYPE_FLOAT = 0x03;
 
 // Hardware abstraction layer for the telemetry server.
 class HalInterface {
@@ -191,9 +195,9 @@ protected:
   bool valid;
 };
 
-template <typename T> class PrimitiveData : public Data {
+template <typename T> class NumericData : public Data {
 public:
-  PrimitiveData(const char* internal_name, const char* display_name,
+  NumericData(const char* internal_name, const char* display_name,
       const char* units):
       Data(internal_name, display_name, units) {}
 
@@ -211,45 +215,35 @@ public:
     }
   }
 
+  virtual uint8_t get_data_type() { return DATATYPE_NUMERIC; }
+
+  virtual size_t get_header_kvrs_length() {
+    return Data::get_header_kvrs_length()
+        + 1 + 1   // subtype
+        + 1 + 1;  // data length
+  }
+
+  virtual void write_header_kvrs(TransmitPacketInterface& packet) {
+    Data::write_header_kvrs(packet);
+    packet.write_uint8(RECORDID_NUMERIC_SUBTYPE);
+    packet.write_uint8(get_subtype());
+    packet.write_uint8(RECORDID_NUMERIC_LENGTH);
+    packet.write_uint8(sizeof(value));
+  }
+
+  uint8_t get_subtype();
+
+  virtual size_t get_payload_length() {
+    return sizeof(value);
+  }
+
+  virtual void write_payload(TransmitPacketInterface& packet);
+
 protected:
   T overloaded_value;
   bool overload_enabled;
 
   T value;
-};
-
-// Telemetry data for integer types (uint8_t, uint16_t, ...).
-template <typename T> class IntData : public PrimitiveData<T> {
-public:
-  IntData(const char* internal_name, const char* display_name,
-      const char* units):
-      PrimitiveData<T>(internal_name, display_name, units) {}
-
-  // TODO: figure out why this needs to be here and make it DRY
-  T operator = (T b) {
-    PrimitiveData<T>::operator =(b);
-  }
-
-  virtual uint8_t get_data_type() { return DATATYPE_INT; }
-
-  virtual size_t get_header_kvrs_length();
-  virtual void write_header_kvrs(TransmitPacketInterface& packet);
-
-  virtual size_t get_payload_length();
-  virtual void write_payload(TransmitPacketInterface& packet);
-
-protected:
-};
-
-// Telemetry data for float types (float, double).
-template <typename T> class FloatData : public PrimitiveData<T> {
-public:
-  virtual uint8_t get_data_type() { return DATATYPE_FLOAT; }
-
-  virtual size_t get_payload_length();
-  virtual void write_payload(TransmitPacketInterface& packet);
-
-protected:
 };
 
 }

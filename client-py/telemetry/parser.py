@@ -20,8 +20,8 @@ OPCODE_DATA = 0x01
 
 DATAID_TERMINATOR = 0x00
 
-DATATYPE_INT = 0x00
-DATATYPE_FLOAT = 0x01
+DATATYPE_NUMERIC = 0x01
+DATATYPE_NUMERIC_ARRAY = 0x02
 
 RECORDID_TERMINATOR = 0x00
 RECORDID_INTERNAL_NAME = 0x01
@@ -31,8 +31,12 @@ RECORDID_UNITS = 0x03
 RECORDID_OVERRIDE_CTL = 0x08
 RECORDID_OVERRIDE_DATA = 0x08
 
-RECORDID_INT_LENGTH = 0x40
-RECORDID_FLOAT_LENGTH = 0x40
+RECORDID_NUMERIC_SUBTYPE = 0x40
+RECORDID_NUMERIC_LENGTH = 0x41
+
+RECORDID_NUMERIC_ARRAY_SUBTYPE = 0x40
+RECORDID_NUMERIC_ARRAY_LENGTH = 0x41
+RECORDID_NUMERIC_ARRAY_COUNT = 0x42
 
 RECORDID_GLOBAL_END = 0x40
 
@@ -117,15 +121,21 @@ class TelemetryPacketDecoder():
       else:
         raise RuntimeError("Unknown record ID %i for datatype %i" 
                            % (record_id, data_type))
-    elif data_type == DATATYPE_INT:
-      if (record_id == RECORDID_INT_LENGTH):
+    elif data_type == DATATYPE_NUMERIC:
+      if (record_id == RECORDID_NUMERIC_SUBTYPE):
+        return KvRecord('subtype', self.read_uint8())
+      elif (record_id == RECORDID_NUMERIC_LENGTH):
         return KvRecord('length', self.read_uint8())
       else:
         raise RuntimeError("Unknown record ID %i for datatype %i" 
                            % (record_id, data_type))
-    elif data_type == DATATYPE_FLOAT:
-      if (record_id == RECORDID_FLOAT_LENGTH):
+    elif data_type == DATATYPE_NUMERIC_ARRAY:
+      if (record_id == RECORDID_NUMERIC_ARRAY_SUBTYPE):
+        return KvRecord('subtype', self.read_uint8())
+      elif (record_id == RECORDID_NUMERIC_ARRAY_LENGTH):
         return KvRecord('length', self.read_uint8())
+      elif (record_id == RECORDID_NUMERIC_ARRAY_COUNT):
+        return KvRecord('count', self.read_uint8())
       else:
         raise RuntimeError("Unknown record ID %i for datatype %i" 
                            % (record_id, data_type))
