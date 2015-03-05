@@ -61,4 +61,14 @@ void NumericData<uint32_t>::write_payload(TransmitPacketInterface& packet) {
   packet.write_uint32(*this);
 }
 
+// TODO: move into HAL
+template<>
+uint8_t NumericData<float>::get_subtype() {
+  return NUMERIC_SUBTYPE_FLOAT;
+}
+template<>
+void NumericData<float>::write_payload(TransmitPacketInterface& packet) {
+  packet.write_float(*this);
+}
+
 }

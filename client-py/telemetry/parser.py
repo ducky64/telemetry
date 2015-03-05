@@ -1,4 +1,5 @@
 from collections import namedtuple, deque
+import struct
 import time
 
 import serial
@@ -46,6 +47,28 @@ def deserialize_uint32(byte_stream):
          | byte_stream.popleft() << 16
          | byte_stream.popleft() << 8
          | byte_stream.popleft())
+  
+def deserialize_float(byte_stream):
+  # TODO: handle overflow
+  packed = bytearray([byte_stream.popleft(), 
+                      byte_stream.popleft(),
+                      byte_stream.popleft(),
+                      byte_stream.popleft()])
+  return struct.unpack('f', packed)[0]
+
+def deserialize_numeric(byte_stream, subtype, length):
+  if subtype == NUMERIC_SUBTYPE_UINT:
+    value = 0
+    remaining = length
+    while remaining > 0:
+      value = value << 8 | deserialize_uint8(byte_stream)
+      remaining -= 1
+    return value
+    # TODO: add support for sint / floats
+  elif subtype == NUMERIC_SUBTYPE_FLOAT:
+    return deserialize_float(byte_stream)
+  else:
+    raise UnknownNumericSubtype("Unknown subtype %02x" % subtype)
 
 def deserialize_string(byte_stream):
   # TODO: handle overflow
@@ -129,7 +152,7 @@ class TelemetryData:
     for record_id, record_desc in kvrs_dict.items():
       record_name, _ = record_desc
       if not hasattr(self, record_name):
-        raise NoRecordIdError("%s missing record %02x: %s" % (self.__class__.__name__, record_id, record_name))
+        raise NoRecordIdError("%s missing RecordId %02x (%s) in header" % (self.__class__.__name__, record_id, record_name))
 
   def deserialize_data(self, byte_stream):
     """Destructively reads in the data of this type from the input stream.
@@ -152,16 +175,7 @@ class NumericData(TelemetryData):
     return newdict
     
   def deserialize_data(self, byte_stream):
-    if self.subtype == NUMERIC_SUBTYPE_UINT:
-      value = 0
-      remaining = self.length
-      while remaining > 0:
-        value = value << 8 | deserialize_uint8(byte_stream)
-        remaining -= 1
-      return value
-      # TODO: add support for sint / floats
-    else:
-      raise UnknownNumericSubtype("Unknown subtype %02x" % self.subtype)
+    return deserialize_numeric(byte_stream, self.subtype, self.length)
   
 datatype_registry[DATATYPE_NUMERIC] = NumericData
 
@@ -225,6 +239,12 @@ class HeaderPacket(TelemetryPacket):
     TelemetryData objects.
     """
     return self.data
+  
+  def get_data_names(self):
+    data_names = []
+    for data_def in self.data.values():
+      data_names.append(data_def.internal_name)
+    return data_names
       
 opcodes_registry[OPCODE_HEADER] = HeaderPacket
 
@@ -240,8 +260,17 @@ class DataPacket(TelemetryPacket):
         break
       data_def = context.get_data_def(data_id)
       if not data_def:
-        raise UndefinedDataIdError("Undefined Data ID %02x" % data_id)
+        raise UndefinedDataIdError("Received DataId %02x not defined in header" % data_id)
       self.data[data_def.internal_name] = data_def.deserialize_data(byte_stream)
+
+  def get_data_names(self):
+    return self.data.keys()
+
+  def get_data(self, data_name):
+    if data_name in self.data:
+      return self.data[data_name]
+    else:
+      return None
 
 opcodes_registry[OPCODE_DATA] = DataPacket  
 
@@ -273,7 +302,7 @@ class TelemetrySerial:
     
     self.rx_packets = deque()  # queued decoded packets
     
-    self.context = None
+    self.context = TelemetryContext([])
     
     # decoder state machine variables
     self.decoder_state = self.DecoderState.SOF;  # expected next byte
@@ -297,8 +326,6 @@ class TelemetrySerial:
             self.decoder_state = self.DecoderState.LENGTH
         else:
           self.data_buffer.extend(self.packet_buffer)
-          for byte in self.packet_buffer:
-            print(chr(byte), end="")
           self.packet_buffer = deque()
           self.decoder_pos = 0
       elif self.decoder_state == self.DecoderState.LENGTH:
@@ -318,8 +345,6 @@ class TelemetrySerial:
             self.context = TelemetryContext(decoded.get_data_defs())
           
           self.rx_packets.append(decoded)
-          print("")
-          print(decoded)
           self.packet_buffer = deque()
       
           self.decoder_pos = 0
@@ -328,9 +353,34 @@ class TelemetrySerial:
       else:
         raise RuntimeError("Unknown DecoderState")
 
+  def next_rx_packet(self):
+    if self.rx_packets:
+      return self.rx_packets.popleft()
+    else:
+      return None
+    
+  def next_rx_byte(self):
+    if self.data_buffer:
+      return self.data_buffer.popleft()
+    else:
+      return None
+
 if __name__ == "__main__":
   telemetry = TelemetrySerial(serial.Serial("COM61", baudrate=1000000))
   while True:
     telemetry.process_rx()
     time.sleep(0.1)
+
+    while True:
+      next_packet = telemetry.next_rx_packet()
+      if not next_packet:
+        break
+      print('')
+      print(next_packet)
     
+    while True:
+      next_byte = telemetry.next_rx_byte()
+      if next_byte is None:
+        break
+      print(chr(next_byte), end='')
+          
