@@ -95,7 +95,7 @@ class TelemetryData:
     """
     opcode = byte_stream[0]
     if opcode not in datatype_registry:
-      raise NoOpcodeError("No opcode %02x" % opcode)
+      raise NoOpcodeError("No datatype %02x" % opcode)
     data_cls = datatype_registry[opcode]
     return data_cls(data_id, byte_stream)
   
@@ -185,26 +185,26 @@ class DuplicateDataIdError(TelemetryDeserializationError):
 opcodes_registry = {}
 class TelemetryPacket:
   @staticmethod
-  def decode(byte_stream):
+  def decode(byte_stream, context):
     opcode = byte_stream[0]
     if opcode not in opcodes_registry:
       raise NoOpcodeError("No opcode %02x" % opcode)
     packet_cls = opcodes_registry[opcode]
-    return packet_cls(byte_stream)
+    return packet_cls(byte_stream, context)
   
-  def __init__(self, byte_stream):
+  def __init__(self, byte_stream, context):
     self.opcode = deserialize_uint8(byte_stream)
     self.sequence = deserialize_uint8(byte_stream)
-    self.decode_payload(byte_stream)
+    self.decode_payload(byte_stream, context)
     
-  def decode_payload(self, byte_stream):
+  def decode_payload(self, byte_stream, context):
     raise NotImplementedError
 
 class HeaderPacket(TelemetryPacket):
   def __repr__(self):
     return "Header [%i]: %s" % (self.sequence, repr(self.data))
     
-  def decode_payload(self, byte_stream):
+  def decode_payload(self, byte_stream, context):
     self.data = {}
     while True:
       data_id = deserialize_uint8(byte_stream)
@@ -217,9 +217,14 @@ class HeaderPacket(TelemetryPacket):
 opcodes_registry[OPCODE_HEADER] = HeaderPacket
 
 class DataPacket(TelemetryPacket):
-  pass
+  def __repr__(self):
+    return "Data [%i]: %s" % (self.sequence, repr(self.byte_stream))
+    
+  def decode_payload(self, byte_stream, context):
+    self.byte_stream = byte_stream
+    # TODO IMPLEMENT ME
 
-opcodes_registry[OPCODE_DATA] = HeaderPacket  
+opcodes_registry[OPCODE_DATA] = DataPacket  
 
 
 
@@ -230,6 +235,8 @@ class TelemetrySerial:
     self.serial = serial
     
     self.rx_packets = deque()  # queued decoded packets
+    
+    self.context = None
     
     # decoder state machine variables
     self.decoder_state = self.DecoderState.SOF;  # expected next byte
@@ -268,7 +275,7 @@ class TelemetrySerial:
         self.packet_buffer.append(rx_byte)
         self.decoder_pos += 1
         if self.decoder_pos == self.packet_length:
-          decoded = TelemetryPacket.decode(self.packet_buffer)
+          decoded = TelemetryPacket.decode(self.packet_buffer, self.context)
           self.rx_packets.append(decoded)
           print("")
           print(decoded)
