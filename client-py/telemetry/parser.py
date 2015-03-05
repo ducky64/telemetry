@@ -68,6 +68,8 @@ class MissingKvrError(TelemetryDeserializationError):
 
 datatype_registry = {}
 class TelemetryData:
+  """Abstract base class for telemetry data ID definitions.
+  """
   def __repr__(self):
     out = self.__class__.__name__
     for _, record_desc in self.get_kvrs_dict().items():
@@ -181,9 +183,13 @@ class NoOpcodeError(TelemetryDeserializationError):
   pass
 class DuplicateDataIdError(TelemetryDeserializationError):
   pass
+class UndefinedDataIdError(TelemetryDeserializationError):
+  pass
 
 opcodes_registry = {}
 class TelemetryPacket:
+  """Abstract base class for telemetry packets.
+  """
   @staticmethod
   def decode(byte_stream, context):
     opcode = byte_stream[0]
@@ -202,7 +208,7 @@ class TelemetryPacket:
 
 class HeaderPacket(TelemetryPacket):
   def __repr__(self):
-    return "Header [%i]: %s" % (self.sequence, repr(self.data))
+    return "[%i]Header: %s" % (self.sequence, repr(self.data))
     
   def decode_payload(self, byte_stream, context):
     self.data = {}
@@ -214,21 +220,52 @@ class HeaderPacket(TelemetryPacket):
         raise DuplicateDataIdError("Duplicate DataId %02x" % data_id)
       self.data[data_id] = TelemetryData.decode_header(data_id, byte_stream)
       
+  def get_data_defs(self):
+    """Returns the data defs defined in this header as a dict of data ID to
+    TelemetryData objects.
+    """
+    return self.data
+      
 opcodes_registry[OPCODE_HEADER] = HeaderPacket
 
 class DataPacket(TelemetryPacket):
   def __repr__(self):
-    return "Data [%i]: %s" % (self.sequence, repr(self.byte_stream))
+    return "[%i]Data: %s" % (self.sequence, repr(self.data))
     
   def decode_payload(self, byte_stream, context):
-    self.byte_stream = byte_stream
-    # TODO IMPLEMENT ME
+    self.data = {}
+    while True:
+      data_id = deserialize_uint8(byte_stream)
+      if data_id == DATAID_TERMINATOR:
+        break
+      data_def = context.get_data_def(data_id)
+      if not data_def:
+        raise UndefinedDataIdError("Undefined Data ID %02x" % data_id)
+      self.data[data_def.internal_name] = data_def.deserialize_data(byte_stream)
 
 opcodes_registry[OPCODE_DATA] = DataPacket  
 
 
 
+class TelemetryContext:
+  """Context for telemetry communications, containing the setup information in
+  the header.
+  """
+  def __init__(self, data_defs):
+    self.data_defs = data_defs
+    
+  def get_data_def(self, data_id):
+    if data_id in self.data_defs:
+      return self.data_defs[data_id]
+    else:
+      return None
+
+
+
 class TelemetrySerial:
+  """Telemetry serial receiver state machine. Separates out telemetry packets
+  from the rest of the stream.
+  """
   DecoderState = enum('SOF', 'LENGTH', 'DATA')
   
   def __init__(self, serial):
@@ -276,16 +313,20 @@ class TelemetrySerial:
         self.decoder_pos += 1
         if self.decoder_pos == self.packet_length:
           decoded = TelemetryPacket.decode(self.packet_buffer, self.context)
+          
+          if isinstance(decoded, HeaderPacket):
+            self.context = TelemetryContext(decoded.get_data_defs())
+          
           self.rx_packets.append(decoded)
           print("")
           print(decoded)
           self.packet_buffer = deque()
-          
+      
           self.decoder_pos = 0
           self.decoder_state = self.DecoderState.SOF
           # TODO: add byte destuffing
       else:
-        raise RuntimeError("Unknown DecoderState")    
+        raise RuntimeError("Unknown DecoderState")
 
 if __name__ == "__main__":
   telemetry = TelemetrySerial(serial.Serial("COM61", baudrate=1000000))

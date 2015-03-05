@@ -12,6 +12,7 @@
 namespace telemetry {
 
 void MbedHal::transmit_byte(uint8_t data) {
+  // TODO: optimize with DMA
   serial.putc(data);
 }
 
