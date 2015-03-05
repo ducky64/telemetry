@@ -47,6 +47,9 @@ class PlotData():
       maxlim = 0
     elif minlim > 0 and maxlim > 0:
       minlim = 0
+    rangelim = maxlim - minlim
+    minlim -= rangelim / 10
+    maxlim += rangelim / 10
     self.subplot.set_ylim(minlim, maxlim)
 
 if __name__ == "__main__":

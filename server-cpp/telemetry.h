@@ -198,8 +198,9 @@ protected:
 template <typename T> class NumericData : public Data {
 public:
   NumericData(const char* internal_name, const char* display_name,
-      const char* units):
-      Data(internal_name, display_name, units) {}
+      const char* units, T init_value):
+      Data(internal_name, display_name, units),
+      value(init_value) {}
 
   T operator = (T b) {
     this->value = b;
