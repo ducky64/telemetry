@@ -68,6 +68,9 @@ public:
   virtual ~TransmitPacketInterface() {}
 
   // Writes a 8-bit unsigned integer to the packet stream.
+  virtual void write_byte(uint8_t data) = 0;
+    
+  // Writes a 8-bit unsigned integer to the packet stream.
   virtual void write_uint8(uint8_t data) = 0;
   // Writes a 16-bit unsigned integer to the packet stream.
   virtual void write_uint16(uint16_t data) = 0;
@@ -175,6 +178,8 @@ protected:
 class FixedLengthTransmitPacket : public TransmitPacketInterface {
 public:
   FixedLengthTransmitPacket(HalInterface& hal, size_t length);
+
+  virtual void write_byte(uint8_t data);
 
   virtual void write_uint8(uint8_t data);
   virtual void write_uint16(uint16_t data);
@@ -360,7 +365,7 @@ public:
       NumericArrayBase<float, array_count>(
           telemetry_container, internal_name, display_name,
           units, elem_init_value) {};
-  virtual uint8_t get_subtype() {return NUMERIC_SUBTYPE_UINT; }
+  virtual uint8_t get_subtype() {return NUMERIC_SUBTYPE_FLOAT; }
   virtual void write_payload(TransmitPacketInterface& packet) {
     for (size_t i=0; i<array_count; i++) { packet.write_float(this->value[i]); } }
 };

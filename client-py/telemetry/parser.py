@@ -179,10 +179,10 @@ class NumericData(TelemetryData):
   
 datatype_registry[DATATYPE_NUMERIC] = NumericData
 
-class NumericArrayData(TelemetryData):
+class NumericArray(TelemetryData):
   @classmethod
   def get_kvrs_dict(cls):
-    newdict = super(NumericArrayData, cls).get_kvrs_dict().copy()
+    newdict = super(NumericArray, cls).get_kvrs_dict().copy()
     newdict.update({ 
       0x40: ('subtype', deserialize_uint8),
       0x41: ('length', deserialize_uint8),
@@ -196,7 +196,7 @@ class NumericArrayData(TelemetryData):
       out.append(deserialize_numeric(byte_stream, self.subtype, self.length))
     return out
   
-datatype_registry[DATATYPE_NUMERIC_ARRAY] = NumericArrayData
+datatype_registry[DATATYPE_NUMERIC_ARRAY] = NumericArray
 
 class PacketSizeError(TelemetryDeserializationError):
   pass
@@ -304,7 +304,7 @@ class TelemetrySerial:
   """Telemetry serial receiver state machine. Separates out telemetry packets
   from the rest of the stream.
   """
-  DecoderState = enum('SOF', 'LENGTH', 'DATA')
+  DecoderState = enum('SOF', 'LENGTH', 'DATA', 'DATA_DESTUFF')
   
   def __init__(self, serial):
     self.serial = serial
@@ -363,6 +363,10 @@ class TelemetrySerial:
           self.decoder_pos = 0
           self.decoder_state = self.DecoderState.SOF
           # TODO: add byte destuffing
+        elif rx_byte == SOF_BYTE[0]:
+          self.decoder_state = self.DecoderState.DATA_DESTUFF
+      elif self.decoder_state == self.DecoderState.DATA_DESTUFF:
+        self.decoder_state = self.DecoderState.DATA
       else:
         raise RuntimeError("Unknown DecoderState")
 
@@ -395,5 +399,8 @@ if __name__ == "__main__":
       next_byte = telemetry.next_rx_byte()
       if next_byte is None:
         break
-      print(chr(next_byte), end='')
+      try:
+        print(chr(next_byte), end='')
+      except UnicodeEncodeError:
+        pass
           

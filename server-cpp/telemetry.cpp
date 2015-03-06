@@ -123,7 +123,7 @@ FixedLengthTransmitPacket::FixedLengthTransmitPacket(HalInterface& hal,
   valid = true;
 }
 
-void FixedLengthTransmitPacket::write_uint8(uint8_t data) {
+void FixedLengthTransmitPacket::write_byte(uint8_t data) {
   if (!valid) {
     hal.do_error("Writing to invalid packet");
     return;
@@ -132,52 +132,35 @@ void FixedLengthTransmitPacket::write_uint8(uint8_t data) {
     return;
   }
   hal.transmit_byte(data);
+  if (data == SOF1) {
+    hal.transmit_byte(0x00);  // TODO: proper abstraction and magic numbers
+  }
   count++;
 }
 
+void FixedLengthTransmitPacket::write_uint8(uint8_t data) {
+  write_byte(data);
+}
+
 void FixedLengthTransmitPacket::write_uint16(uint16_t data) {
-  if (!valid) {
-    hal.do_error("Writing to invalid packet");
-    return;
-  } else if (count + 2 > length) {
-    hal.do_error("Writing over packet length");
-    return;
-  }
-  hal.transmit_byte((data >> 8) & 0xff);
-  hal.transmit_byte((data >> 0) & 0xff);
-  count += 2;
+  write_byte((data >> 8) & 0xff);
+  write_byte((data >> 0) & 0xff);
 }
 
 void FixedLengthTransmitPacket::write_uint32(uint32_t data) {
-  if (!valid) {
-    hal.do_error("Writing to invalid packet");
-    return;
-  } else if (count + 4 > length) {
-    hal.do_error("Writing over packet length");
-    return;
-  }
-  hal.transmit_byte((data >> 24) & 0xff);
-  hal.transmit_byte((data >> 16) & 0xff);
-  hal.transmit_byte((data >> 8) & 0xff);
-  hal.transmit_byte((data >> 0) & 0xff);
-  count += 4;
+  write_byte((data >> 24) & 0xff);
+  write_byte((data >> 16) & 0xff);
+  write_byte((data >> 8) & 0xff);
+  write_byte((data >> 0) & 0xff);
 }
 
 void FixedLengthTransmitPacket::write_float(float data) {
-  if (!valid) {
-    hal.do_error("Writing to invalid packet");
-    return;
-  } else if (count + 4 > length) {
-    hal.do_error("Writing over packet length");
-    return;
-  }
   // TODO: THIS IS ENDIANNESS DEPENDENT, ABSTRACT INTO HAL?
   uint8_t *float_array = (uint8_t*) &data;
-  hal.transmit_byte(float_array[0]);
-  hal.transmit_byte(float_array[1]);
-  hal.transmit_byte(float_array[2]);
-  hal.transmit_byte(float_array[3]);
-  count += 4;
+  write_byte(float_array[0]);
+  write_byte(float_array[1]);
+  write_byte(float_array[2]);
+  write_byte(float_array[3]);
 }
 
 void FixedLengthTransmitPacket::finish() {
