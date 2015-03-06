@@ -248,6 +248,7 @@ protected:
 };
 
 // TODO: fix this partial specialization inheritance nightmare
+
 template <typename T, uint32_t array_count> 
 class NumericArrayBase : public Data {
 public:
@@ -265,6 +266,7 @@ public:
   T& operator[] (const int index) {
     // TODO: add bounds checking here
     // TODO: update detection here, separating read/write
+    // TODO: add "frozen" check
     return value[index];
   }
 
@@ -307,7 +309,7 @@ class NumericArray : public NumericArrayBase<T, array_count> {
   virtual void write_payload(TransmitPacketInterface& packet);
 };
 
-/*template <uint32_t array_count> 
+template <uint32_t array_count> 
 class NumericArray<uint8_t, array_count> : public NumericArrayBase<uint8_t, array_count> {
 public:
   NumericArray(Telemetry& telemetry_container, 
@@ -315,10 +317,11 @@ public:
       const char* units, uint8_t elem_init_value):
       NumericArrayBase<uint8_t, array_count>(
           telemetry_container, internal_name, display_name,
-          units, elem_init_value);
-  virtual uint8_t get_subtype();
-  virtual void write_payload(TransmitPacketInterface& packet);
-};*/
+          units, elem_init_value) {};
+  virtual uint8_t get_subtype() {return NUMERIC_SUBTYPE_UINT; }
+  virtual void write_payload(TransmitPacketInterface& packet) {
+    for (size_t i=0; i<array_count; i++) { packet.write_uint8(this->value[i]); } }
+};
 
 template <uint32_t array_count> 
 class NumericArray<uint16_t, array_count> : public NumericArrayBase<uint16_t, array_count> {
@@ -334,7 +337,7 @@ public:
     for (size_t i=0; i<array_count; i++) { packet.write_uint16(this->value[i]); } }
 };
 
-/*template <uint32_t array_count> 
+template <uint32_t array_count> 
 class NumericArray<uint32_t, array_count> : public NumericArrayBase<uint32_t, array_count> {
 public:
   NumericArray(Telemetry& telemetry_container, 
@@ -343,8 +346,9 @@ public:
       NumericArrayBase<uint32_t, array_count>(
           telemetry_container, internal_name, display_name,
           units, elem_init_value) {};
-  virtual uint8_t get_subtype();
-  virtual void write_payload(TransmitPacketInterface& packet);
+  virtual uint8_t get_subtype() {return NUMERIC_SUBTYPE_UINT; }
+  virtual void write_payload(TransmitPacketInterface& packet) {
+    for (size_t i=0; i<array_count; i++) { packet.write_uint32(this->value[i]); } }
 };
 
 template <uint32_t array_count> 
@@ -356,9 +360,10 @@ public:
       NumericArrayBase<float, array_count>(
           telemetry_container, internal_name, display_name,
           units, elem_init_value) {};
-  virtual uint8_t get_subtype();
-  virtual void write_payload(TransmitPacketInterface& packet);
-};*/
+  virtual uint8_t get_subtype() {return NUMERIC_SUBTYPE_UINT; }
+  virtual void write_payload(TransmitPacketInterface& packet) {
+    for (size_t i=0; i<array_count; i++) { packet.write_float(this->value[i]); } }
+};
 
 }
 
