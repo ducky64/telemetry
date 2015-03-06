@@ -126,16 +126,16 @@ The data value length and format is dependent on the data type, which is defined
 
 \subsection{Numeric: Data type 1}
 \subsubsection{KV Records}
-Record ID 0x40: data sub-type: 0x01 indicates unsigned integer, 0x02 indicates signed integer, 0x03 indicates floating-point \\
-Record ID 0x41: data length (in bytes)
+Record ID 0x40, uint8: data sub-type: 0x01 indicates unsigned integer, 0x02 indicates signed integer, 0x03 indicates floating-point \\
+Record ID 0x41, uint8: data length (in bytes)
 \subsubsection{Data format}
 Raw data in network order.
 
 \subsection{Numeric Array: Data type 2}
 \subsubsection{KV Records}
-Record ID 0x40: element data sub-type: same as for numeric \\
-Record ID 0x41: element data length (in bytes) \\
-Record ID 0x42: array count (in number of elements)
+Record ID 0x40, uint8: element data sub-type: same as for numeric \\
+Record ID 0x41, uint8: element data length (in bytes) \\
+Record ID 0x42, uint32: array count (in number of elements)
 \subsubsection{Data format}
 Raw data in network order.
 

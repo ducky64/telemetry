@@ -182,15 +182,21 @@ datatype_registry[DATATYPE_NUMERIC] = NumericData
 class NumericArrayData(TelemetryData):
   @classmethod
   def get_kvrs_dict(cls):
-    newdict = super(NumericData, cls).get_kvrs_dict().copy()
+    newdict = super(NumericArrayData, cls).get_kvrs_dict().copy()
     newdict.update({ 
       0x40: ('subtype', deserialize_uint8),
       0x41: ('length', deserialize_uint8),
-      0x42: ('count', deserialize_uint8),
+      0x42: ('count', deserialize_uint32),
     })
     return newdict 
+  
+  def deserialize_data(self, byte_stream):
+    out = []
+    for _ in range(self.count):
+      out.append(deserialize_numeric(byte_stream, self.subtype, self.length))
+    return out
+  
 datatype_registry[DATATYPE_NUMERIC_ARRAY] = NumericArrayData
-
 
 class PacketSizeError(TelemetryDeserializationError):
   pass

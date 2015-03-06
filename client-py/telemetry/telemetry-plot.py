@@ -114,16 +114,15 @@ if __name__ == "__main__":
       print(chr(next_byte), end='')
 
     if plot_updated:
+      max_indep = 0
       for plotdata in all_plotdata:
         plotdata.autoset_dep_range()
         
-        plotdata_range = plotdata.get_indep_range()
-        if (indep_range[0] is None) or (plotdata_range[0] < indep_range[0]):
-          indep_range[0] = plotdata_range[0]
-        if (indep_range[1] is None) or (plotdata_range[1] > indep_range[1]):
-          indep_range[1] = plotdata_range[1]
+        plotdata_max = plotdata.get_indep_range()[1]
+        if plotdata_max > max_indep:
+          max_indep = plotdata_max 
           
-      all_plotdata[-1].set_indep_range(indep_range)  
+      all_plotdata[-1].set_indep_range([max_indep-timespan, max_indep])  
 
   ani = animation.FuncAnimation(fig, update, interval=30)
   plt.show()

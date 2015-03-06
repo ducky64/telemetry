@@ -36,6 +36,7 @@ const uint8_t RECORDID_OVERRIDE_DATA = 0x08;
 
 const uint8_t RECORDID_NUMERIC_SUBTYPE = 0x40;
 const uint8_t RECORDID_NUMERIC_LENGTH = 0x41;
+const uint8_t RECORDID_ARRAY_COUNT = 0x42;
 
 const uint8_t NUMERIC_SUBTYPE_UINT = 0x01;
 const uint8_t NUMERIC_SUBTYPE_SINT = 0x02;
@@ -195,28 +196,28 @@ protected:
   bool valid;
 };
 
-template <typename T> class NumericData : public Data {
+template <typename T> 
+class NumericData : public Data {
 public:
   NumericData(Telemetry& telemetry_container, 
       const char* internal_name, const char* display_name,
       const char* units, T init_value):
       Data(internal_name, display_name, units),
-      value(init_value) {
+      value(init_value),
+      frozen(false) {
     telemetry_container.add_data(*this);
   }
 
   T operator = (T b) {
-    this->value = b;
-    return b;
+    if (frozen) {
+      value = b;
+    }
+    return value;
     // TODO: mark as updated here
   }
 
   operator T() {
-    if (overload_enabled) {
-      return overloaded_value;
-    } else {
-      return value;
-    }
+    return value;
   }
 
   virtual uint8_t get_data_type() { return DATATYPE_NUMERIC; }
@@ -237,18 +238,127 @@ public:
 
   uint8_t get_subtype();
 
-  virtual size_t get_payload_length() {
-    return sizeof(value);
-  }
+  virtual size_t get_payload_length() { return sizeof(value); }
 
   virtual void write_payload(TransmitPacketInterface& packet);
 
 protected:
-  T overloaded_value;
-  bool overload_enabled;
-
   T value;
+  bool frozen;
 };
+
+// TODO: fix this partial specialization inheritance nightmare
+template <typename T, uint32_t array_count> 
+class NumericArrayBase : public Data {
+public:
+  NumericArrayBase(Telemetry& telemetry_container, 
+      const char* internal_name, const char* display_name,
+      const char* units, T elem_init_value):
+      Data(internal_name, display_name, units),
+      frozen(false) {
+    for (size_t i=0; i<array_count; i++) {
+      value[i] = elem_init_value;
+    }
+    telemetry_container.add_data(*this);
+  }
+
+  T& operator[] (const int index) {
+    // TODO: add bounds checking here
+    // TODO: update detection here, separating read/write
+    return value[index];
+  }
+
+  virtual uint8_t get_data_type() { return DATATYPE_NUMERIC_ARRAY; }
+
+  virtual size_t get_header_kvrs_length() {
+    return Data::get_header_kvrs_length()
+        + 1 + 1   // subtype
+        + 1 + 1   // data length
+        + 1 + 4;  // array length
+  }
+
+  virtual void write_header_kvrs(TransmitPacketInterface& packet) {
+    Data::write_header_kvrs(packet);
+    packet.write_uint8(RECORDID_NUMERIC_SUBTYPE);
+    packet.write_uint8(get_subtype());
+    packet.write_uint8(RECORDID_NUMERIC_LENGTH);
+    packet.write_uint8(sizeof(value[0]));
+    packet.write_uint8(RECORDID_ARRAY_COUNT);
+    packet.write_uint32(array_count);
+  }
+
+  virtual uint8_t get_subtype() = 0;
+
+  virtual size_t get_payload_length() { return sizeof(value); }
+
+  virtual void write_payload(TransmitPacketInterface& packet) = 0;
+
+protected:
+  T value[array_count];
+  bool frozen;
+};
+
+template <typename T, uint32_t array_count> 
+class NumericArray : public NumericArrayBase<T, array_count> {
+  NumericArray(Telemetry& telemetry_container, 
+      const char* internal_name, const char* display_name,
+      const char* units, T elem_init_value);
+  virtual uint8_t get_subtype();
+  virtual void write_payload(TransmitPacketInterface& packet);
+};
+
+/*template <uint32_t array_count> 
+class NumericArray<uint8_t, array_count> : public NumericArrayBase<uint8_t, array_count> {
+public:
+  NumericArray(Telemetry& telemetry_container, 
+      const char* internal_name, const char* display_name,
+      const char* units, uint8_t elem_init_value):
+      NumericArrayBase<uint8_t, array_count>(
+          telemetry_container, internal_name, display_name,
+          units, elem_init_value);
+  virtual uint8_t get_subtype();
+  virtual void write_payload(TransmitPacketInterface& packet);
+};*/
+
+template <uint32_t array_count> 
+class NumericArray<uint16_t, array_count> : public NumericArrayBase<uint16_t, array_count> {
+public:
+  NumericArray(Telemetry& telemetry_container, 
+      const char* internal_name, const char* display_name,
+      const char* units, uint16_t elem_init_value):
+      NumericArrayBase<uint16_t, array_count>(
+          telemetry_container, internal_name, display_name,
+          units, elem_init_value) {};
+  virtual uint8_t get_subtype() {return NUMERIC_SUBTYPE_UINT; }
+  virtual void write_payload(TransmitPacketInterface& packet) {
+    for (size_t i=0; i<array_count; i++) { packet.write_uint16(this->value[i]); } }
+};
+
+/*template <uint32_t array_count> 
+class NumericArray<uint32_t, array_count> : public NumericArrayBase<uint32_t, array_count> {
+public:
+  NumericArray(Telemetry& telemetry_container, 
+      const char* internal_name, const char* display_name,
+      const char* units, uint32_t elem_init_value):
+      NumericArrayBase<uint32_t, array_count>(
+          telemetry_container, internal_name, display_name,
+          units, elem_init_value) {};
+  virtual uint8_t get_subtype();
+  virtual void write_payload(TransmitPacketInterface& packet);
+};
+
+template <uint32_t array_count> 
+class NumericArray<float, array_count> : public NumericArrayBase<float, array_count> {
+public:
+  NumericArray(Telemetry& telemetry_container, 
+      const char* internal_name, const char* display_name,
+      const char* units, float elem_init_value):
+      NumericArrayBase<float, array_count>(
+          telemetry_container, internal_name, display_name,
+          units, elem_init_value) {};
+  virtual uint8_t get_subtype();
+  virtual void write_payload(TransmitPacketInterface& packet);
+};*/
 
 }
 
