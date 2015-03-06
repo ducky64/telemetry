@@ -5,13 +5,20 @@ import serial
 
 from telemetry.parser import *
 
-class PlotData():
-  def __init__(self, indep_name, dep_name, indep_span, subplot, line):
+plot_registry = {}
+
+class NumericPlot():
+  # TODO REFACTOR ME REALLY
+  def __init__(self, indep_name, dep_def, indep_span, subplot, hide_indep_axis=False):
     self.indep_span = indep_span
     self.indep_name = indep_name
-    self.dep_name = dep_name
+    self.dep_name = dep_def.internal_name
     self.subplot = subplot
-    self.line = line
+    self.subplot.set_title("%s: %s (%s)"           
+                           % (dep_def.internal_name, dep_def.display_name, dep_def.units))
+    self.line, = subplot.plot([0])
+    
+    plt.setp(subplot.get_xticklabels(), visible=not hide_indep_axis)
     
     self.indep_data = deque()
     self.dep_data = deque()
@@ -34,13 +41,12 @@ class PlotData():
       self.line.set_xdata(self.indep_data)
       self.line.set_ydata(self.dep_data)
 
-  def get_indep_range(self):
-    return [self.indep_data[0], self.indep_data[-1]]
-
   def set_indep_range(self, indep_range):
     self.subplot.set_xlim(indep_range)
 
   def autoset_dep_range(self):
+    if not self.dep_data:
+      return
     minlim = min(self.dep_data)
     maxlim = max(self.dep_data)
     if minlim < 0 and maxlim < 0:
@@ -52,6 +58,71 @@ class PlotData():
     maxlim += rangelim / 20
     self.subplot.set_ylim(minlim, maxlim)
 
+plot_registry[NumericData] = NumericPlot
+
+class WaterfallPlot():
+  # TODO REFACTOR ME REALLY
+  def __init__(self, indep_name, dep_def, indep_span, subplot, hide_indep_axis=False, decimate=3):
+    self.indep_span = indep_span
+    self.indep_name = indep_name
+    self.dep_name = dep_def.internal_name
+    self.count = dep_def.count
+    self.decimate = decimate
+    self.on_decimate = 0
+    
+    self.subplot = subplot
+    self.subplot.set_title("%s: %s (%s)"           
+                           % (dep_def.internal_name, dep_def.display_name, dep_def.units))
+    
+    self.x_mesh = [0] * (self.count + 1)
+    self.x_mesh = np.array([self.x_mesh, self.x_mesh])
+    
+    self.y_array = range(0, self.count + 1)
+    self.y_array = list(map(lambda x: x - 0.5, self.y_array))
+    self.y_mesh = np.array([self.y_array, self.y_array])
+    
+    self.data_array = np.array([[0] * self.count])
+    
+    self.quad = self.subplot.pcolormesh(self.x_mesh, self.y_mesh, self.data_array)
+
+    plt.setp(subplot.get_xticklabels(), visible=not hide_indep_axis)
+    
+    self.indep_data = deque()
+    self.dep_data = deque()
+  
+  def update_from_packet(self, packet):
+    assert isinstance(packet, DataPacket)
+    data_names = packet.get_data_names()
+    
+    self.on_decimate += 1
+    if self.on_decimate >= self.decimate:
+      self.on_decimate = 0
+    if self.on_decimate > 0:
+      return
+    
+    if self.indep_name in data_names and self.dep_name in data_names:
+      latest_indep = packet.get_data(self.indep_name)
+      self.x_mesh = np.vstack([self.x_mesh, np.array([[latest_indep] * (self.count + 1)])])
+      self.y_mesh = np.vstack([self.y_mesh, np.array(self.y_array)])
+      self.data_array = np.vstack([self.data_array, packet.get_data(self.dep_name)])
+
+      indep_cutoff = latest_indep - self.indep_span
+      
+      while self.x_mesh[0][0] < indep_cutoff:
+        self.x_mesh = np.delete(self.x_mesh, (0), axis=0)
+        self.y_mesh = np.delete(self.y_mesh, (0), axis=0)
+        self.data_array = np.delete(self.data_array, (0), axis=0)
+      
+      self.quad = self.subplot.pcolormesh(self.x_mesh, self.y_mesh, self.data_array, cmap='gray')
+
+  def set_indep_range(self, indep_range):
+    self.subplot.set_xlim(indep_range)
+
+  def autoset_dep_range(self):
+    pass
+
+plot_registry[NumericArray] = WaterfallPlot
+
 if __name__ == "__main__":
   timespan = 10000
   independent_axis_name = 'time'
@@ -59,6 +130,7 @@ if __name__ == "__main__":
   telemetry = TelemetrySerial(serial.Serial("COM61", baudrate=1000000))
   all_plotdata = []
   fig = plt.figure()
+  latest_indep = [0]
   
   def update(data):
     telemetry.process_rx()
@@ -68,8 +140,6 @@ if __name__ == "__main__":
       packet = telemetry.next_rx_packet()
       if not packet:
         break
-
-      plot_updated = True
       
       if isinstance(packet, HeaderPacket):
         all_plotdata.clear()
@@ -80,30 +150,26 @@ if __name__ == "__main__":
           if data_def.internal_name != independent_axis_name:
             data_defs.append(data_def)
 
-        ax0 = None
         for plot_idx, data_def in enumerate(data_defs):
           if data_def.internal_name == independent_axis_name:
             continue
-          
-          if not ax0:
-            ax0 = ax = fig.add_subplot(len(data_defs), 1, len(data_defs)-plot_idx)
-          else:
-            ax = fig.add_subplot(len(data_defs), 1, len(data_defs)-plot_idx, sharex=ax0)
-            plt.setp(ax.get_xticklabels(), visible=False)
 
-          ax.set_title("%s: %s (%s)"
-                       % (data_def.internal_name, data_def.display_name, data_def.units))
-          line, = ax.plot([0])
-          plotdata = PlotData(independent_axis_name, data_def.internal_name,
-                              timespan, ax, line)
+          ax = fig.add_subplot(len(data_defs), 1, len(data_defs)-plot_idx)
+          plotdata = plot_registry[data_def.__class__](independent_axis_name, data_def,
+                                 timespan, ax)
           all_plotdata.append(plotdata)
           
           print("Found dependent data %s" % data_def.internal_name)
 
       elif isinstance(packet, DataPacket):
-        indep_range = [None, None]
+        indep_value = packet.get_data(independent_axis_name)
+        if indep_value is not None:
+          latest_indep[0] = indep_value
+          
         for plotdata in all_plotdata:
           plotdata.update_from_packet(packet)
+          
+        plot_updated = True
       else:
         raise Exception("Unknown received packet %s" % repr(next_packet))
       
@@ -111,18 +177,18 @@ if __name__ == "__main__":
       next_byte = telemetry.next_rx_byte()
       if next_byte is None:
         break
-      print(chr(next_byte), end='')
+      try:
+        print(chr(next_byte), end='')
+      except UnicodeEncodeError:
+        pass
 
     if plot_updated:
       max_indep = 0
       for plotdata in all_plotdata:
         plotdata.autoset_dep_range()
-        
-        plotdata_max = plotdata.get_indep_range()[1]
-        if plotdata_max > max_indep:
-          max_indep = plotdata_max 
-          
-      all_plotdata[-1].set_indep_range([max_indep-timespan, max_indep])  
+           
+      for plotdata in all_plotdata:    
+        plotdata.set_indep_range([latest_indep[0] - timespan, latest_indep[0]])  
 
   ani = animation.FuncAnimation(fig, update, interval=30)
   plt.show()
