@@ -304,7 +304,7 @@ class TelemetrySerial:
   """Telemetry serial receiver state machine. Separates out telemetry packets
   from the rest of the stream.
   """
-  DecoderState = enum('SOF', 'LENGTH', 'DATA', 'DATA_DESTUFF')
+  DecoderState = enum('SOF', 'LENGTH', 'DATA', 'DATA_DESTUFF', 'DATA_DESTUFF_END')
   
   def __init__(self, serial):
     self.serial = serial
@@ -361,12 +361,16 @@ class TelemetrySerial:
           self.packet_buffer = deque()
       
           self.decoder_pos = 0
-          self.decoder_state = self.DecoderState.SOF
-          # TODO: add byte destuffing
+          if rx_byte == SOF_BYTE[0]:
+            self.decoder_state = self.DecoderState.DATA_DESTUFF_END
+          else:
+            self.decoder_state = self.DecoderState.SOF
         elif rx_byte == SOF_BYTE[0]:
           self.decoder_state = self.DecoderState.DATA_DESTUFF
       elif self.decoder_state == self.DecoderState.DATA_DESTUFF:
         self.decoder_state = self.DecoderState.DATA
+      elif self.decoder_state == self.DecoderState.DATA_DESTUFF_END:
+        self.decoder_state = self.DecoderState.SOF
       else:
         raise RuntimeError("Unknown DecoderState")
 
