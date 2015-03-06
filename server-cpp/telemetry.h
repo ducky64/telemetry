@@ -197,10 +197,13 @@ protected:
 
 template <typename T> class NumericData : public Data {
 public:
-  NumericData(const char* internal_name, const char* display_name,
+  NumericData(Telemetry& telemetry_container, 
+      const char* internal_name, const char* display_name,
       const char* units, T init_value):
       Data(internal_name, display_name, units),
-      value(init_value) {}
+      value(init_value) {
+    telemetry_container.add_data(*this);
+  }
 
   T operator = (T b) {
     this->value = b;

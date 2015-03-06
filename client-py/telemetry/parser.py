@@ -192,7 +192,8 @@ class NumericArrayData(TelemetryData):
 datatype_registry[DATATYPE_NUMERIC_ARRAY] = NumericArrayData
 
 
-
+class PacketSizeError(TelemetryDeserializationError):
+  pass
 class NoOpcodeError(TelemetryDeserializationError):
   pass
 class DuplicateDataIdError(TelemetryDeserializationError):
@@ -216,7 +217,9 @@ class TelemetryPacket:
     self.opcode = deserialize_uint8(byte_stream)
     self.sequence = deserialize_uint8(byte_stream)
     self.decode_payload(byte_stream, context)
-    
+    if len(byte_stream) > 0:
+      raise PacketSizeError("%i unused bytes in packet" % len(byte_stream))
+      
   def decode_payload(self, byte_stream, context):
     raise NotImplementedError
 
@@ -339,12 +342,16 @@ class TelemetrySerial:
         self.packet_buffer.append(rx_byte)
         self.decoder_pos += 1
         if self.decoder_pos == self.packet_length:
-          decoded = TelemetryPacket.decode(self.packet_buffer, self.context)
+          try:
+            decoded = TelemetryPacket.decode(self.packet_buffer, self.context)
           
-          if isinstance(decoded, HeaderPacket):
-            self.context = TelemetryContext(decoded.get_data_defs())
+            if isinstance(decoded, HeaderPacket):
+              self.context = TelemetryContext(decoded.get_data_defs())
+            
+            self.rx_packets.append(decoded)
+          except TelemetryDeserializationError as e:
+            print("Deserialization error: %s" % repr(e)) # TODO prettier cleaner
           
-          self.rx_packets.append(decoded)
           self.packet_buffer = deque()
       
           self.decoder_pos = 0

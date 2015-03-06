@@ -48,8 +48,8 @@ class PlotData():
     elif minlim > 0 and maxlim > 0:
       minlim = 0
     rangelim = maxlim - minlim
-    minlim -= rangelim / 10
-    maxlim += rangelim / 10
+    minlim -= rangelim / 20 # TODO make variable padding
+    maxlim += rangelim / 20
     self.subplot.set_ylim(minlim, maxlim)
 
 if __name__ == "__main__":
@@ -68,32 +68,28 @@ if __name__ == "__main__":
       packet = telemetry.next_rx_packet()
       if not packet:
         break
-      
-      #print('')
-      #print(packet)
+
       plot_updated = True
       
       if isinstance(packet, HeaderPacket):
         all_plotdata.clear()
         fig.clf()
         
-        plot_count = 0
-        for data_def in packet.get_data_defs().values():
+        data_defs = []
+        for _, data_def in reversed(sorted(packet.get_data_defs().items())):
           if data_def.internal_name != independent_axis_name:
-            plot_count += 1
-            
-        plot_idx = 0
+            data_defs.append(data_def)
+
         ax0 = None
-        for data_def in packet.get_data_defs().values():
+        for plot_idx, data_def in enumerate(data_defs):
           if data_def.internal_name == independent_axis_name:
             continue
           
           if not ax0:
-            ax0 = ax = fig.add_subplot(plot_count, 1, plot_count-plot_idx)
+            ax0 = ax = fig.add_subplot(len(data_defs), 1, len(data_defs)-plot_idx)
           else:
-            ax = fig.add_subplot(plot_count, 1, plot_count-plot_idx, sharex=ax0)
-            #ax.set_xticklabels([])
-          plot_idx += 1
+            ax = fig.add_subplot(len(data_defs), 1, len(data_defs)-plot_idx, sharex=ax0)
+            plt.setp(ax.get_xticklabels(), visible=False)
 
           ax.set_title("%s: %s (%s)"
                        % (data_def.internal_name, data_def.display_name, data_def.units))
@@ -129,5 +125,5 @@ if __name__ == "__main__":
           
       all_plotdata[-1].set_indep_range(indep_range)  
 
-  ani = animation.FuncAnimation(fig, update, interval=100)
+  ani = animation.FuncAnimation(fig, update, interval=30)
   plt.show()
