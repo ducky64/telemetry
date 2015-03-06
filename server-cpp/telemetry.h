@@ -214,7 +214,7 @@ public:
   }
 
   T operator = (T b) {
-    if (frozen) {
+    if (!frozen) {
       value = b;
     }
     return value;
