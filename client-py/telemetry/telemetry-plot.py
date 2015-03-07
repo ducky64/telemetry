@@ -113,7 +113,8 @@ class WaterfallPlot():
         self.y_mesh = np.delete(self.y_mesh, (0), axis=0)
         self.data_array = np.delete(self.data_array, (0), axis=0)
       
-      self.quad = self.subplot.pcolormesh(self.x_mesh, self.y_mesh, self.data_array, cmap='gray')
+      self.subplot.cla()
+      self.quad = self.subplot.pcolormesh(self.x_mesh, self.y_mesh, self.data_array, cmap='gray', vmin=0, vmax=65535)
 
   def set_indep_range(self, indep_range):
     self.subplot.set_xlim(indep_range)
