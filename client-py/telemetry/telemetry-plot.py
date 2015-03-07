@@ -7,19 +7,32 @@ from telemetry.parser import *
 
 plot_registry = {}
 
-class NumericPlot():
-  # TODO REFACTOR ME REALLY
-  def __init__(self, indep_name, dep_def, indep_span, subplot, hide_indep_axis=False):
+class BasePlot():
+  def __init__(self, indep_def, dep_def, indep_span, subplot, hide_indep_axis=False):
     self.indep_span = indep_span
-    self.indep_name = indep_name
+    self.indep_def = indep_def
+    self.indep_name = indep_def.internal_name
     self.dep_def = dep_def
     self.dep_name = dep_def.internal_name
     self.subplot = subplot
     self.subplot.set_title("%s: %s (%s)"           
                            % (dep_def.internal_name, dep_def.display_name, dep_def.units))
-    self.line, = subplot.plot([0])
     
     plt.setp(subplot.get_xticklabels(), visible=not hide_indep_axis)
+    
+  def update_from_packet(self, packet):
+    raise NotImplementedError 
+
+  def update_show(self, packet):
+    raise NotImplementedError
+  
+  def set_indep_range(self, packet):
+    raise NotImplementedError
+    
+class NumericPlot(BasePlot):
+  def __init__(self, indep_def, dep_def, indep_span, subplot, hide_indep_axis=False):
+    super(NumericPlot, self).__init__(indep_def, dep_def, indep_span, subplot, hide_indep_axis)
+    self.line, = subplot.plot([0])
     
     self.indep_data = deque()
     self.dep_data = deque()
@@ -65,18 +78,10 @@ class NumericPlot():
 
 plot_registry[NumericData] = NumericPlot
 
-class WaterfallPlot():
-  # TODO REFACTOR ME REALLY
-  def __init__(self, indep_name, dep_def, indep_span, subplot, hide_indep_axis=False):
-    self.indep_span = indep_span
-    self.indep_name = indep_name
-    self.dep_def = dep_def
-    self.dep_name = dep_def.internal_name
+class WaterfallPlot(BasePlot):
+  def __init__(self, indep_def, dep_def, indep_span, subplot, hide_indep_axis=False):
+    super(WaterfallPlot, self).__init__(indep_def, dep_def, indep_span, subplot, hide_indep_axis)
     self.count = dep_def.count
-    
-    self.subplot = subplot
-    self.subplot.set_title("%s: %s (%s)"           
-                           % (dep_def.internal_name, dep_def.display_name, dep_def.units))
     
     self.x_mesh = [0] * (self.count + 1)
     self.x_mesh = np.array([self.x_mesh])
@@ -90,7 +95,6 @@ class WaterfallPlot():
     plt.setp(subplot.get_xticklabels(), visible=not hide_indep_axis)
     
     self.indep_data = deque()
-    self.dep_data = deque()
   
   def update_from_packet(self, packet):
     assert isinstance(packet, DataPacket)
@@ -152,9 +156,12 @@ if __name__ == "__main__":
         all_plotdata.clear()
         fig.clf()
         
+        indep_def = None
         data_defs = []
         for _, data_def in reversed(sorted(packet.get_data_defs().items())):
-          if data_def.internal_name != independent_axis_name:
+          if data_def.internal_name == independent_axis_name:
+            indep_def = data_def 
+          else:
             data_defs.append(data_def)
 
         for plot_idx, data_def in enumerate(data_defs):
@@ -162,7 +169,7 @@ if __name__ == "__main__":
             continue
 
           ax = fig.add_subplot(len(data_defs), 1, len(data_defs)-plot_idx)
-          plotdata = plot_registry[data_def.__class__](independent_axis_name, data_def,
+          plotdata = plot_registry[data_def.__class__](indep_def, data_def,
                                  timespan, ax)
           all_plotdata.append(plotdata)
           
