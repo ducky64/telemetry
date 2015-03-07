@@ -62,13 +62,11 @@ plot_registry[NumericData] = NumericPlot
 
 class WaterfallPlot():
   # TODO REFACTOR ME REALLY
-  def __init__(self, indep_name, dep_def, indep_span, subplot, hide_indep_axis=False, decimate=3):
+  def __init__(self, indep_name, dep_def, indep_span, subplot, hide_indep_axis=False):
     self.indep_span = indep_span
     self.indep_name = indep_name
     self.dep_name = dep_def.internal_name
     self.count = dep_def.count
-    self.decimate = decimate
-    self.on_decimate = 0
     
     self.subplot = subplot
     self.subplot.set_title("%s: %s (%s)"           
@@ -93,13 +91,7 @@ class WaterfallPlot():
   def update_from_packet(self, packet):
     assert isinstance(packet, DataPacket)
     data_names = packet.get_data_names()
-    
-    self.on_decimate += 1
-    if self.on_decimate >= self.decimate:
-      self.on_decimate = 0
-    if self.on_decimate > 0:
-      return
-    
+
     if self.indep_name in data_names and self.dep_name in data_names:
       latest_indep = packet.get_data(self.indep_name)
       self.x_mesh = np.vstack([self.x_mesh, np.array([[latest_indep] * (self.count + 1)])])
@@ -114,7 +106,7 @@ class WaterfallPlot():
         self.data_array = np.delete(self.data_array, (0), axis=0)
       
       self.subplot.cla()
-      self.quad = self.subplot.pcolormesh(self.x_mesh, self.y_mesh, self.data_array, cmap='gray', vmin=0, vmax=65535)
+      self.quad = self.subplot.pcolorfast(self.x_mesh, self.y_mesh, self.data_array, cmap='gray', vmin=0, vmax=65535, interpolation='None')
 
   def set_indep_range(self, indep_range):
     self.subplot.set_xlim(indep_range)
