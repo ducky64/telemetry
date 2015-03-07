@@ -1,0 +1,73 @@
+\documentclass[11pt]{article}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\newcommand{\todo}[1]{\textcolor{red}{\textbf{TODO:} #1}}
+
+\title{\textbf{Telemetry Quick Start \& Reference}}
+\author{Ducky}
+\date{\today}
+\begin{document}
+
+\maketitle
+
+\section{Prerequisites}
+\label{sec:prereqs}
+The following software is necessary for a basic telemetry install:
+\begin{itemize}
+  \item \href{https://www.python.org/downloads/}{Python 3 (3.4 or later)}
+\end{itemize}
+
+The following software is necessary for the telemetry plotter GUI:
+\begin{itemize}
+  \item \href{http://sourceforge.net/projects/numpy/files/NumPy/}{NumPy (1.9.2 or later)}
+  \begin{itemize}
+    \item \href{http://sourceforge.net/projects/numpy/files/NumPy/1.9.2/numpy-1.9.2-win32-superpack-python3.4.exe/download}{executable for Windows, Python 3.4 32-bit}
+  \end{itemize}
+  \item \href{http://matplotlib.org/downloads.html}{matplotlib (1.4.3 or later)}
+  \begin{itemize}
+    \item \href{http://sourceforge.net/projects/matplotlib/files/matplotlib/matplotlib-1.4.3/windows/matplotlib-1.4.3.win32-py3.4.exe/download}{executable for Windows, Python 3.4 32-bit}
+  \end{itemize}
+\end{itemize}
+
+\subsection{Windows Install}
+\begin{enumerate}
+  \item Install the prerequisite software above.
+  \item Install the required Python packages via \texttt{pip}:
+  \begin{verbatim}
+    cd C:\Python34\Scripts
+    pip install pyserial 
+  \end{verbatim}
+  \item If using the plotter GUI, also install these Python dependencies for matplotlib via \texttt{pip}:
+  \begin{verbatim}
+    cd C:\Python34\Scripts
+    pip install six python-dateutil pyparsing
+  \end{verbatim}
+\end{enumerate}
+
+\subsection{Linux Install}
+\todo{to be written}
+
+\section{Known Issues}
+\subsection{Telemetry framework}
+\begin{itemize}
+  \item None yet
+\end{itemize}
+
+\subsection{mBed HAL}
+\begin{itemize}
+  \item MODSERIAL and Serial putc are highly inefficient, and the overhead is noticable at high data rates (at 1 Mbaud, the overhead is longer than the time to transmit the byte). Using MODDMA may increase efficiency.
+\end{itemize}
+
+\subsection{Arduino HAL}
+\begin{itemize}
+  \item None yet
+\end{itemize}
+
+\section{API Quick Start}
+\subsection{Transmit-side}
+
+\subsection{Receive-side}
+
+That's it.
+\end{document}
