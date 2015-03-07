@@ -12,6 +12,7 @@ class NumericPlot():
   def __init__(self, indep_name, dep_def, indep_span, subplot, hide_indep_axis=False):
     self.indep_span = indep_span
     self.indep_name = indep_name
+    self.dep_def = dep_def
     self.dep_name = dep_def.internal_name
     self.subplot = subplot
     self.subplot.set_title("%s: %s (%s)"           
@@ -38,25 +39,29 @@ class NumericPlot():
         self.indep_data.popleft()
         self.dep_data.popleft()
         
+  def update_show(self):
       self.line.set_xdata(self.indep_data)
       self.line.set_ydata(self.dep_data)
+      
+      if self.dep_def.limits[0] < self.dep_def.limits[1]: 
+        minlim = self.dep_def.limits[0]
+        maxlim = self.dep_def.limits[1] 
+      else:
+        if not self.dep_data:
+          return
+        minlim = min(self.dep_data)
+        maxlim = max(self.dep_data)
+        if minlim < 0 and maxlim < 0:
+          maxlim = 0
+        elif minlim > 0 and maxlim > 0:
+          minlim = 0
+      rangelim = maxlim - minlim
+      minlim -= rangelim / 20 # TODO make variable padding
+      maxlim += rangelim / 20
+      self.subplot.set_ylim(minlim, maxlim)
 
   def set_indep_range(self, indep_range):
     self.subplot.set_xlim(indep_range)
-
-  def autoset_dep_range(self):
-    if not self.dep_data:
-      return
-    minlim = min(self.dep_data)
-    maxlim = max(self.dep_data)
-    if minlim < 0 and maxlim < 0:
-      maxlim = 0
-    elif minlim > 0 and maxlim > 0:
-      minlim = 0
-    rangelim = maxlim - minlim
-    minlim -= rangelim / 20 # TODO make variable padding
-    maxlim += rangelim / 20
-    self.subplot.set_ylim(minlim, maxlim)
 
 plot_registry[NumericData] = NumericPlot
 
@@ -65,6 +70,7 @@ class WaterfallPlot():
   def __init__(self, indep_name, dep_def, indep_span, subplot, hide_indep_axis=False):
     self.indep_span = indep_span
     self.indep_name = indep_name
+    self.dep_def = dep_def
     self.dep_name = dep_def.internal_name
     self.count = dep_def.count
     
@@ -104,15 +110,22 @@ class WaterfallPlot():
         self.x_mesh = np.delete(self.x_mesh, (0), axis=0)
         self.y_mesh = np.delete(self.y_mesh, (0), axis=0)
         self.data_array = np.delete(self.data_array, (0), axis=0)
-      
-      self.subplot.cla()
-      self.quad = self.subplot.pcolorfast(self.x_mesh, self.y_mesh, self.data_array, cmap='gray', vmin=0, vmax=65535, interpolation='None')
+
+  def update_show(self):
+    self.subplot.cla()
+    
+    if self.dep_def.limits[0] < self.dep_def.limits[1]: 
+      minlim = self.dep_def.limits[0]
+      maxlim = self.dep_def.limits[1]
+      self.quad = self.subplot.pcolorfast(self.x_mesh, self.y_mesh, self.data_array,
+                                          cmap='gray', vmin=minlim, vmax=maxlim,
+                                          interpolation='None')
+    else:  
+      self.quad = self.subplot.pcolorfast(self.x_mesh, self.y_mesh, self.data_array,
+                                          cmap='gray', interpolation='None')
 
   def set_indep_range(self, indep_range):
     self.subplot.set_xlim(indep_range)
-
-  def autoset_dep_range(self):
-    pass
 
 plot_registry[NumericArray] = WaterfallPlot
 
@@ -176,12 +189,10 @@ if __name__ == "__main__":
         pass
 
     if plot_updated:
-      max_indep = 0
-      for plotdata in all_plotdata:
-        plotdata.autoset_dep_range()
-           
       for plotdata in all_plotdata:    
-        plotdata.set_indep_range([latest_indep[0] - timespan, latest_indep[0]])  
-
+        plotdata.update_show()  
+      for plotdata in all_plotdata:
+        plotdata.set_indep_range([latest_indep[0] - timespan, latest_indep[0]])
+        
   ani = animation.FuncAnimation(fig, update, interval=30)
   plt.show()

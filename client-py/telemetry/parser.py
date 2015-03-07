@@ -70,6 +70,22 @@ def deserialize_numeric(byte_stream, subtype, length):
   else:
     raise UnknownNumericSubtype("Unknown subtype %02x" % subtype)
 
+def deserialize_numeric_from_def(data_def, count=None):
+  def deserialize_numeric_inner(byte_stream):
+    # these should have already been decoded
+    assert hasattr(data_def, 'subtype')
+    assert hasattr(data_def, 'length')
+    if count is not None:
+      inner_count = count
+      out = []
+      while inner_count > 0:
+        out.append(deserialize_numeric(byte_stream, data_def.subtype, data_def.length))
+        inner_count -= 1
+      return out
+    else:
+      return deserialize_numeric(byte_stream, data_def.subtype, data_def.length)
+  return deserialize_numeric_inner
+
 def deserialize_string(byte_stream):
   # TODO: handle overflow
   outstr = ""
@@ -100,8 +116,7 @@ class TelemetryData:
       out += " %s=%s" % (record_name, repr(getattr(self, record_name)))
     return out
   
-  @classmethod
-  def get_kvrs_dict(cls):
+  def get_kvrs_dict(self):
     """Returns a dict of record id => (record name, deserialization function) known by this class.
     The record name is used as an instance variable name if the KVR is read in.
     """
@@ -165,12 +180,12 @@ class UnknownNumericSubtype(Exception):
   pass
   
 class NumericData(TelemetryData):
-  @classmethod
-  def get_kvrs_dict(cls):
-    newdict = super(NumericData, cls).get_kvrs_dict().copy()
+  def get_kvrs_dict(self):
+    newdict = super(NumericData, self).get_kvrs_dict().copy()
     newdict.update({ 
       0x40: ('subtype', deserialize_uint8),
       0x41: ('length', deserialize_uint8),
+      0x42: ('limits', deserialize_numeric_from_def(self, count=2)),
     })
     return newdict
     
@@ -180,13 +195,13 @@ class NumericData(TelemetryData):
 datatype_registry[DATATYPE_NUMERIC] = NumericData
 
 class NumericArray(TelemetryData):
-  @classmethod
-  def get_kvrs_dict(cls):
-    newdict = super(NumericArray, cls).get_kvrs_dict().copy()
+  def get_kvrs_dict(self):
+    newdict = super(NumericArray, self).get_kvrs_dict().copy()
     newdict.update({ 
       0x40: ('subtype', deserialize_uint8),
       0x41: ('length', deserialize_uint8),
-      0x42: ('count', deserialize_uint32),
+      0x42: ('limits', deserialize_numeric_from_def(self, count=2)),
+      0x43: ('count', deserialize_uint32),
     })
     return newdict 
   

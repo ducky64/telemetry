@@ -36,7 +36,8 @@ const uint8_t RECORDID_OVERRIDE_DATA = 0x08;
 
 const uint8_t RECORDID_NUMERIC_SUBTYPE = 0x40;
 const uint8_t RECORDID_NUMERIC_LENGTH = 0x41;
-const uint8_t RECORDID_ARRAY_COUNT = 0x42;
+const uint8_t RECORDID_NUMERIC_LIMITS = 0x42;
+const uint8_t RECORDID_ARRAY_COUNT = 0x43;
 
 const uint8_t NUMERIC_SUBTYPE_UINT = 0x01;
 const uint8_t NUMERIC_SUBTYPE_SINT = 0x02;
@@ -208,7 +209,7 @@ public:
       const char* internal_name, const char* display_name,
       const char* units, T init_value):
       Data(internal_name, display_name, units),
-      value(init_value),
+      value(init_value), min_val(init_value), max_val(init_value),
       frozen(false) {
     telemetry_container.add_data(*this);
   }
@@ -224,13 +225,20 @@ public:
   operator T() {
     return value;
   }
-
+  
+  NumericData<T>& set_limits(T min, T max) {
+    min_val = min;
+    max_val = max;
+    return *this;
+  }
+  
   virtual uint8_t get_data_type() { return DATATYPE_NUMERIC; }
 
   virtual size_t get_header_kvrs_length() {
     return Data::get_header_kvrs_length()
         + 1 + 1   // subtype
-        + 1 + 1;  // data length
+        + 1 + 1   // data length
+        + 1 + sizeof(value) + sizeof(value);  // limits
   }
 
   virtual void write_header_kvrs(TransmitPacketInterface& packet) {
@@ -239,16 +247,21 @@ public:
     packet.write_uint8(get_subtype());
     packet.write_uint8(RECORDID_NUMERIC_LENGTH);
     packet.write_uint8(sizeof(value));
+    packet.write_uint8(RECORDID_NUMERIC_LIMITS);
+    serialize_data(min_val, packet);
+    serialize_data(max_val, packet);
   }
 
   uint8_t get_subtype();
 
   virtual size_t get_payload_length() { return sizeof(value); }
-
-  virtual void write_payload(TransmitPacketInterface& packet);
+  virtual void write_payload(TransmitPacketInterface& packet) { serialize_data(value, packet); }
+  
+  virtual void serialize_data(T data, TransmitPacketInterface& packet);
 
 protected:
   T value;
+  T min_val, max_val;
   bool frozen;
 };
 
@@ -261,6 +274,7 @@ public:
       const char* internal_name, const char* display_name,
       const char* units, T elem_init_value):
       Data(internal_name, display_name, units),
+      min_val(elem_init_value), max_val(elem_init_value),
       frozen(false) {
     for (size_t i=0; i<array_count; i++) {
       value[i] = elem_init_value;
@@ -275,13 +289,20 @@ public:
     return value[index];
   }
 
+  NumericArrayBase<T, array_count>& set_limits(T min, T max) {
+    min_val = min;
+    max_val = max;
+    return *this;
+  }
+  
   virtual uint8_t get_data_type() { return DATATYPE_NUMERIC_ARRAY; }
 
   virtual size_t get_header_kvrs_length() {
     return Data::get_header_kvrs_length()
         + 1 + 1   // subtype
         + 1 + 1   // data length
-        + 1 + 4;  // array length
+        + 1 + 4   // array length
+        + 1 + sizeof(value[0]) + sizeof(value[0]);  // limits
   }
 
   virtual void write_header_kvrs(TransmitPacketInterface& packet) {
@@ -292,16 +313,22 @@ public:
     packet.write_uint8(sizeof(value[0]));
     packet.write_uint8(RECORDID_ARRAY_COUNT);
     packet.write_uint32(array_count);
+    packet.write_uint8(RECORDID_NUMERIC_LIMITS);
+    serialize_data(min_val, packet);
+    serialize_data(max_val, packet);
   }
 
   virtual uint8_t get_subtype() = 0;
 
   virtual size_t get_payload_length() { return sizeof(value); }
+  virtual void write_payload(TransmitPacketInterface& packet) {
+    for (size_t i=0; i<array_count; i++) { serialize_data(this->value[i], packet); } }
 
-  virtual void write_payload(TransmitPacketInterface& packet) = 0;
-
+  virtual void serialize_data(T data, TransmitPacketInterface& packet) = 0;
+  
 protected:
   T value[array_count];
+  T min_val, max_val;
   bool frozen;
 };
 
@@ -324,8 +351,8 @@ public:
           telemetry_container, internal_name, display_name,
           units, elem_init_value) {};
   virtual uint8_t get_subtype() {return NUMERIC_SUBTYPE_UINT; }
-  virtual void write_payload(TransmitPacketInterface& packet) {
-    for (size_t i=0; i<array_count; i++) { packet.write_uint8(this->value[i]); } }
+  virtual void serialize_data(uint8_t data, TransmitPacketInterface& packet) {
+    packet.write_uint8(data); }
 };
 
 template <uint32_t array_count> 
@@ -338,8 +365,8 @@ public:
           telemetry_container, internal_name, display_name,
           units, elem_init_value) {};
   virtual uint8_t get_subtype() {return NUMERIC_SUBTYPE_UINT; }
-  virtual void write_payload(TransmitPacketInterface& packet) {
-    for (size_t i=0; i<array_count; i++) { packet.write_uint16(this->value[i]); } }
+  virtual void serialize_data(uint16_t data, TransmitPacketInterface& packet) {
+    packet.write_uint16(data); }
 };
 
 template <uint32_t array_count> 
@@ -352,8 +379,8 @@ public:
           telemetry_container, internal_name, display_name,
           units, elem_init_value) {};
   virtual uint8_t get_subtype() {return NUMERIC_SUBTYPE_UINT; }
-  virtual void write_payload(TransmitPacketInterface& packet) {
-    for (size_t i=0; i<array_count; i++) { packet.write_uint32(this->value[i]); } }
+  virtual void serialize_data(uint32_t data, TransmitPacketInterface& packet) {
+    packet.write_uint32(data); }
 };
 
 template <uint32_t array_count> 
@@ -366,8 +393,8 @@ public:
           telemetry_container, internal_name, display_name,
           units, elem_init_value) {};
   virtual uint8_t get_subtype() {return NUMERIC_SUBTYPE_FLOAT; }
-  virtual void write_payload(TransmitPacketInterface& packet) {
-    for (size_t i=0; i<array_count; i++) { packet.write_float(this->value[i]); } }
+  virtual void serialize_data(float data, TransmitPacketInterface& packet) {
+    packet.write_float(data); }
 };
 
 }
