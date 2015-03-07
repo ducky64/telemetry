@@ -10,10 +10,13 @@ plot_registry = {}
 class BasePlot():
   def __init__(self, indep_def, dep_def, indep_span, subplot, hide_indep_axis=False):
     self.indep_span = indep_span
-    self.indep_def = indep_def
     self.indep_name = indep_def.internal_name
-    self.dep_def = dep_def
     self.dep_name = dep_def.internal_name
+    if dep_def.limits[0] != dep_def.limits[1]:
+      self.limits = dep_def.limits
+    else:
+      self.limits = None
+      
     self.subplot = subplot
     self.subplot.set_title("%s: %s (%s)"           
                            % (dep_def.internal_name, dep_def.display_name, dep_def.units))
@@ -56,9 +59,9 @@ class NumericPlot(BasePlot):
       self.line.set_xdata(self.indep_data)
       self.line.set_ydata(self.dep_data)
       
-      if self.dep_def.limits[0] < self.dep_def.limits[1]: 
-        minlim = self.dep_def.limits[0]
-        maxlim = self.dep_def.limits[1] 
+      if self.limits is not None: 
+        minlim = self.limits[0]
+        maxlim = self.limits[1] 
       else:
         if not self.dep_data:
           return
@@ -95,6 +98,7 @@ class WaterfallPlot(BasePlot):
     plt.setp(subplot.get_xticklabels(), visible=not hide_indep_axis)
     
     self.indep_data = deque()
+    self.quad = None
   
   def update_from_packet(self, packet):
     assert isinstance(packet, DataPacket)
@@ -117,17 +121,17 @@ class WaterfallPlot(BasePlot):
         self.data_array = np.delete(self.data_array, (0), axis=0)
 
   def update_show(self):
-    self.subplot.cla()
+    if self.quad is not None:
+      self.quad.remove()
+      del self.quad
     
-    if self.dep_def.limits[0] < self.dep_def.limits[1]: 
-      minlim = self.dep_def.limits[0]
-      maxlim = self.dep_def.limits[1]
-      self.subplot.pcolorfast(self.x_mesh, self.y_mesh, self.data_array,
-                              cmap='gray', vmin=minlim, vmax=maxlim,
-                              interpolation='None')
+    if self.limits is not None:
+      self.quad = self.subplot.pcolorfast(self.x_mesh, self.y_mesh, self.data_array,
+          cmap='gray', vmin=self.limits[0], vmax=self.limits[1],
+          interpolation='None')
     else:  
-      self.subplot.pcolorfast(self.x_mesh, self.y_mesh, self.data_array,
-                              cmap='gray', interpolation='None')
+      self.quad = self.subplot.pcolorfast(self.x_mesh, self.y_mesh, self.data_array,
+          cmap='gray', interpolation='None')
 
   def set_indep_range(self, indep_range):
     self.subplot.set_xlim(indep_range)
@@ -169,8 +173,9 @@ if __name__ == "__main__":
             continue
 
           ax = fig.add_subplot(len(data_defs), 1, len(data_defs)-plot_idx)
-          plotdata = plot_registry[data_def.__class__](indep_def, data_def,
-                                 timespan, ax)
+          plotdata = plot_registry[data_def.__class__](
+                         indep_def, data_def, timespan, ax, 
+                         hide_indep_axis=(plot_idx != 0))
           all_plotdata.append(plotdata)
           
           print("Found dependent data %s" % data_def.internal_name)
@@ -202,5 +207,5 @@ if __name__ == "__main__":
       for plotdata in all_plotdata:
         plotdata.set_indep_range([latest_indep[0] - timespan, latest_indep[0]])
         
-  ani = animation.FuncAnimation(fig, update, interval=30)
+  ani = animation.FuncAnimation(fig, update, interval=50)
   plt.show()
