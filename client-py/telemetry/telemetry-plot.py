@@ -62,18 +62,29 @@ plot_registry[NumericData] = NumericPlot
 
 class WaterfallPlot():
   # TODO REFACTOR ME REALLY
-  def __init__(self, indep_name, dep_def, indep_span, subplot, hide_indep_axis=False):
+  def __init__(self, indep_name, dep_def, indep_span, subplot, hide_indep_axis=False, decimate=3):
     self.indep_span = indep_span
     self.indep_name = indep_name
     self.dep_name = dep_def.internal_name
     self.count = dep_def.count
-
+    self.decimate = decimate
+    self.on_decimate = 0
+    
     self.subplot = subplot
     self.subplot.set_title("%s: %s (%s)"           
                            % (dep_def.internal_name, dep_def.display_name, dep_def.units))
     
-    self.data_array = np.array([[]] * self.count)
+    self.x_mesh = [0] * (self.count + 1)
+    self.x_mesh = np.array([self.x_mesh, self.x_mesh])
     
+    self.y_array = range(0, self.count + 1)
+    self.y_array = list(map(lambda x: x - 0.5, self.y_array))
+    self.y_mesh = np.array([self.y_array, self.y_array])
+    
+    self.data_array = np.array([[0] * self.count])
+    
+    self.quad = self.subplot.pcolormesh(self.x_mesh, self.y_mesh, self.data_array)
+
     plt.setp(subplot.get_xticklabels(), visible=not hide_indep_axis)
     
     self.indep_data = deque()
@@ -83,21 +94,27 @@ class WaterfallPlot():
     assert isinstance(packet, DataPacket)
     data_names = packet.get_data_names()
     
+    self.on_decimate += 1
+    if self.on_decimate >= self.decimate:
+      self.on_decimate = 0
+    if self.on_decimate > 0:
+      return
+    
     if self.indep_name in data_names and self.dep_name in data_names:
       latest_indep = packet.get_data(self.indep_name)
-      self.indep_data.append(latest_indep)
-      data = packet.get_data(self.dep_name)
-      data = list(map(lambda x: [x], data))
-      self.data_array = np.hstack([self.data_array, data])
+      self.x_mesh = np.vstack([self.x_mesh, np.array([[latest_indep] * (self.count + 1)])])
+      self.y_mesh = np.vstack([self.y_mesh, np.array(self.y_array)])
+      self.data_array = np.vstack([self.data_array, packet.get_data(self.dep_name)])
 
       indep_cutoff = latest_indep - self.indep_span
       
-      while self.indep_data[0] < indep_cutoff:
-        self.indep_data.popleft()
-        self.data_array = np.delete(self.data_array, 0, 1)
+      while self.x_mesh[0][0] < indep_cutoff:
+        self.x_mesh = np.delete(self.x_mesh, (0), axis=0)
+        self.y_mesh = np.delete(self.y_mesh, (0), axis=0)
+        self.data_array = np.delete(self.data_array, (0), axis=0)
       
       self.subplot.cla()
-      self.subplot.imshow(self.data_array, cmap='gray')
+      self.quad = self.subplot.pcolormesh(self.x_mesh, self.y_mesh, self.data_array, cmap='gray', vmin=0, vmax=65535)
 
   def set_indep_range(self, indep_range):
     self.subplot.set_xlim(indep_range)
