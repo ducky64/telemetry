@@ -1,3 +1,5 @@
+#ifdef ARDUINO
+
 #include "telemetry.h"
 #include <Stream.h>
 
@@ -19,3 +21,5 @@ protected:
 };
 
 }
+
+#endif // ifdef ARDUINO

@@ -7,6 +7,8 @@
  * Telemetry HAL for Serial on mBed.
  */
 
+#ifdef MBED
+
 #include "telemetry-mbed.h"
 
 namespace telemetry {
@@ -29,3 +31,5 @@ void MbedHal::do_error(const char* msg) {
 }
 
 }
+
+#endif // ifdef MBED

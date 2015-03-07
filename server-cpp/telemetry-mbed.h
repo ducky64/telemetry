@@ -1,3 +1,5 @@
+#ifdef MBED
+
 #include "telemetry.h"
 #include "mbed.h"
 
@@ -19,3 +21,5 @@ protected:
 };
 
 }
+
+#endif // ifdef MBED
