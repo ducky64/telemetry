@@ -79,15 +79,13 @@ class WaterfallPlot():
                            % (dep_def.internal_name, dep_def.display_name, dep_def.units))
     
     self.x_mesh = [0] * (self.count + 1)
-    self.x_mesh = np.array([self.x_mesh, self.x_mesh])
+    self.x_mesh = np.array([self.x_mesh])
     
     self.y_array = range(0, self.count + 1)
     self.y_array = list(map(lambda x: x - 0.5, self.y_array))
-    self.y_mesh = np.array([self.y_array, self.y_array])
+    self.y_mesh = np.array([self.y_array])
     
-    self.data_array = np.array([[0] * self.count])
-    
-    self.quad = self.subplot.pcolormesh(self.x_mesh, self.y_mesh, self.data_array)
+    self.data_array = None
 
     plt.setp(subplot.get_xticklabels(), visible=not hide_indep_axis)
     
@@ -102,8 +100,11 @@ class WaterfallPlot():
       latest_indep = packet.get_data(self.indep_name)
       self.x_mesh = np.vstack([self.x_mesh, np.array([[latest_indep] * (self.count + 1)])])
       self.y_mesh = np.vstack([self.y_mesh, np.array(self.y_array)])
-      self.data_array = np.vstack([self.data_array, packet.get_data(self.dep_name)])
-
+      if self.data_array is None:
+        self.data_array = np.array([packet.get_data(self.dep_name)])
+      else:
+        self.data_array = np.vstack([self.data_array, packet.get_data(self.dep_name)])
+        
       indep_cutoff = latest_indep - self.indep_span
       
       while self.x_mesh[0][0] < indep_cutoff:
@@ -117,12 +118,12 @@ class WaterfallPlot():
     if self.dep_def.limits[0] < self.dep_def.limits[1]: 
       minlim = self.dep_def.limits[0]
       maxlim = self.dep_def.limits[1]
-      self.quad = self.subplot.pcolorfast(self.x_mesh, self.y_mesh, self.data_array,
-                                          cmap='gray', vmin=minlim, vmax=maxlim,
-                                          interpolation='None')
+      self.subplot.pcolorfast(self.x_mesh, self.y_mesh, self.data_array,
+                              cmap='gray', vmin=minlim, vmax=maxlim,
+                              interpolation='None')
     else:  
-      self.quad = self.subplot.pcolorfast(self.x_mesh, self.y_mesh, self.data_array,
-                                          cmap='gray', interpolation='None')
+      self.subplot.pcolorfast(self.x_mesh, self.y_mesh, self.data_array,
+                              cmap='gray', interpolation='None')
 
   def set_indep_range(self, indep_range):
     self.subplot.set_xlim(indep_range)
