@@ -11,17 +11,23 @@
 
 namespace telemetry {
 
-void Telemetry::add_data(Data& new_data) {
+size_t Telemetry::add_data(Data& new_data) {
   if (data_count >= MAX_DATA_PER_TELEMETRY) {
     do_error("MAX_DATA_PER_TELEMETRY limit reached.");
-    return;
+    return -1;
   }
   if (header_transmitted) {
     do_error("Cannot add new data after header transmitted.");
-    return;
+    return -1;
   }
   data[data_count] = &new_data;
+  data_updated[data_count] = true;
   data_count++;
+  return data_count - 1;
+}
+
+void Telemetry::mark_data_updated(size_t data_id) {
+  data_updated[data_id] = true;
 }
 
 void Telemetry::transmit_header() {
@@ -67,10 +73,17 @@ void Telemetry::transmit_data() {
     return;
   }
 
+  // Keep a local copy to make it more thread-safe
+  bool data_updated_local[MAX_DATA_PER_TELEMETRY];
+
   size_t packet_legnth = 2; // opcode + sequence
   for (int data_idx = 0; data_idx < data_count; data_idx++) {
-    packet_legnth += 1; // data ID
-    packet_legnth += data[data_idx]->get_payload_length();
+    data_updated_local[data_idx] = data_updated[data_idx];
+    data_updated[data_idx] = 0;
+    if (data_updated_local[data_idx]) {
+      packet_legnth += 1; // data ID
+      packet_legnth += data[data_idx]->get_payload_length();
+    }
   }
   packet_legnth++;  // terminator "record"
 
@@ -79,8 +92,10 @@ void Telemetry::transmit_data() {
   packet.write_uint8(OPCODE_DATA);
   packet.write_uint8(packet_tx_sequence);
   for (int data_idx = 0; data_idx < data_count; data_idx++) {
-    packet.write_uint8(data_idx+1);
-    data[data_idx]->write_payload(packet);
+    if (data_updated_local[data_idx]) {
+      packet.write_uint8(data_idx+1);
+      data[data_idx]->write_payload(packet);
+    }
   }
   packet.write_uint8(DATAID_TERMINATOR);
 

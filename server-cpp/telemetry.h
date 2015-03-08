@@ -131,8 +131,11 @@ public:
     packet_tx_sequence(0),
     packet_rx_sequence(0) {};
 
-  // Associates a DataInterface with this object.
-  void add_data(Data& new_data);
+  // Associates a DataInterface with this object, returning the data ID.
+  size_t add_data(Data& new_data);
+
+  // Marks a data ID as updated, to be transmitted in the next packet.
+  void mark_data_updated(size_t data_id);
 
   // Transmits header data. Must be called after all add_data calls are done
   // and before and IO is done.
@@ -167,8 +170,12 @@ protected:
   // Array of associated DataInterface objects. The index+1 is the
   // DataInterface's data ID field.
   Data* data[MAX_DATA_PER_TELEMETRY];
+  // Whether each data has been updated or not.
+  bool data_updated[MAX_DATA_PER_TELEMETRY];
   // Count of associated DataInterface objects.
   size_t data_count;
+
+
 
   bool header_transmitted;
 
@@ -213,17 +220,18 @@ public:
       const char* internal_name, const char* display_name,
       const char* units, T init_value):
       Data(internal_name, display_name, units),
+      telemetry_container(telemetry_container),
       value(init_value), min_val(init_value), max_val(init_value),
       frozen(false) {
-    telemetry_container.add_data(*this);
+    data_id = telemetry_container.add_data(*this);
   }
 
   T operator = (T b) {
     if (!frozen) {
       value = b;
+      telemetry_container.mark_data_updated(data_id);
     }
     return value;
-    // TODO: mark as updated here
   }
 
   operator T() {
@@ -264,33 +272,39 @@ public:
   virtual void serialize_data(T data, TransmitPacketInterface& packet);
 
 protected:
+  Telemetry& telemetry_container;
+  size_t data_id;
   T value;
   T min_val, max_val;
   bool frozen;
 };
 
-// TODO: fix this partial specialization inheritance nightmare
+template <typename T, uint32_t array_count>
+class NumericArrayAccessor;
 
+// TODO: fix this partial specialization inheritance nightmare
 template <typename T, uint32_t array_count> 
 class NumericArrayBase : public Data {
+  friend class NumericArrayAccessor<T, array_count>;
 public:
   NumericArrayBase(Telemetry& telemetry_container, 
       const char* internal_name, const char* display_name,
       const char* units, T elem_init_value):
       Data(internal_name, display_name, units),
+      telemetry_container(telemetry_container),
       min_val(elem_init_value), max_val(elem_init_value),
       frozen(false) {
     for (size_t i=0; i<array_count; i++) {
       value[i] = elem_init_value;
     }
-    telemetry_container.add_data(*this);
+    data_id = telemetry_container.add_data(*this);
   }
 
-  T& operator[] (const int index) {
+  NumericArrayAccessor<T, array_count> operator[] (const int index) {
     // TODO: add bounds checking here
     // TODO: update detection here, separating read/write
     // TODO: add "frozen" check
-    return value[index];
+    return NumericArrayAccessor<T, array_count>(*this, index);
   }
 
   NumericArrayBase<T, array_count>& set_limits(T min, T max) {
@@ -331,9 +345,34 @@ public:
   virtual void serialize_data(T data, TransmitPacketInterface& packet) = 0;
   
 protected:
+  Telemetry& telemetry_container;
+  size_t data_id;
   T value[array_count];
   T min_val, max_val;
   bool frozen;
+};
+
+template <typename T, uint32_t array_count>
+class NumericArrayAccessor {
+public:
+  NumericArrayAccessor(NumericArrayBase<T, array_count>& container, size_t index) :
+    container(container), index(index) { }
+
+  T operator = (T b) {
+    if (!container.frozen) {
+      container.value[index] = b;
+      container.telemetry_container.mark_data_updated(container.data_id);
+    }
+    return container.value[index];
+  }
+
+  operator T() {
+    return container.value[index];
+  }
+
+protected:
+  NumericArrayBase<T, array_count>& container;
+  size_t index;
 };
 
 template <typename T, uint32_t array_count> 
