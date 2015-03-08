@@ -281,14 +281,14 @@ class DataPacket(TelemetryPacket):
       data_def = context.get_data_def(data_id)
       if not data_def:
         raise UndefinedDataIdError("Received DataId %02x not defined in header" % data_id)
-      self.data[data_def.internal_name] = data_def.deserialize_data(byte_stream)
+      self.data[data_def.data_id] = data_def.deserialize_data(byte_stream)
 
-  def get_data_names(self):
-    return self.data.keys()
+  def get_data_dict(self):
+    return self.data
 
-  def get_data(self, data_name):
-    if data_name in self.data:
-      return self.data[data_name]
+  def get_data_by_id(self, data_id):
+    if data_id in self.data:
+      return self.data[data_id]
     else:
       return None
 
