@@ -201,7 +201,7 @@ class NumericArray(TelemetryData):
       0x40: ('subtype', deserialize_uint8),
       0x41: ('length', deserialize_uint8),
       0x42: ('limits', deserialize_numeric_from_def(self, count=2)),
-      0x43: ('count', deserialize_uint32),
+      0x50: ('count', deserialize_uint32),
     })
     return newdict 
   
@@ -402,7 +402,7 @@ class TelemetrySerial:
       return None
 
 if __name__ == "__main__":
-  telemetry = TelemetrySerial(serial.Serial("COM61", baudrate=1000000))
+  telemetry = TelemetrySerial(serial.Serial("COM15", baudrate=115200))
   while True:
     telemetry.process_rx()
     time.sleep(0.1)
