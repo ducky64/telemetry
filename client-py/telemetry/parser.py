@@ -1,5 +1,8 @@
 from collections import deque
+from numbers import Number
 import struct
+
+# TODO: MASSIVE REFACTORING EVERYWHERE
 
 # lifted from https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
 def enum(*sequential, **named):
@@ -50,7 +53,7 @@ def deserialize_float(byte_stream):
                       byte_stream.popleft(),
                       byte_stream.popleft(),
                       byte_stream.popleft()])
-  return struct.unpack('f', packed)[0]
+  return struct.unpack('!f', packed)[0]
 
 def deserialize_numeric(byte_stream, subtype, length):
   if subtype == NUMERIC_SUBTYPE_UINT:
@@ -60,9 +63,12 @@ def deserialize_numeric(byte_stream, subtype, length):
       value = value << 8 | deserialize_uint8(byte_stream)
       remaining -= 1
     return value
-    # TODO: add support for sint / floats
+    # TODO: add support for sint
   elif subtype == NUMERIC_SUBTYPE_FLOAT:
-    return deserialize_float(byte_stream)
+    if length == 4:
+      return deserialize_float(byte_stream)
+    else:
+      raise UnknownNumericSubtype("Unknown float length %02x" % length)
   else:
     raise UnknownNumericSubtype("Unknown subtype %02x" % subtype)
 
@@ -90,6 +96,48 @@ def deserialize_string(byte_stream):
     outstr += chr(data)
     data = byte_stream.popleft()
   return outstr
+
+
+
+def serialize_uint8(value):
+  if (not isinstance(value, int)) or (value < 0 or value > 255):
+    raise ValueError
+  return struct.pack('!B', value)
+
+def serialize_uint16(value):
+  if (not isinstance(value, int)) or (value < 0 or value > 65535):
+    raise ValueError 
+  return struct.pack('!H', value)
+
+def serialize_uint32(value):
+  if (not isinstance(value, int)) or (value < 0 or value > 2 ** 32 - 1): 
+    raise ValueError
+  return struct.pack('!L', value)
+
+def serialize_float(value):
+  if not isinstance(value, Number):
+    raise ValueError
+  return struct.pack('!f', value)
+
+def serialize_numeric(value, subtype, length):
+  if subtype == NUMERIC_SUBTYPE_UINT:
+    if length == 1:
+      return serialize_uint8(value)
+    elif length == 2:
+      return serialize_uint16(value)
+    elif length == 4:
+      return serialize_uint32(value)
+    else:
+      raise ValueError("Unknown uint length %02x" % length)
+  elif subtype == NUMERIC_SUBTYPE_FLOAT:
+    if length == 1:
+      return serialize_float(value)
+    else:
+      raise ValueError("Unknown float length %02x" % length)
+  else:
+    raise ValueError("Unknown subtype %02x" % subtype)
+
+
 
 PACKET_LENGTH_BYTES = 2 # number of bytes in the packet length field
 
@@ -143,6 +191,8 @@ class TelemetryData(object):
     self.display_name = self.internal_name
     self.units = ""
     
+    self.latest_value = None
+    
     self.decode_kvrs(byte_stream)
     
   def decode_kvrs(self, byte_stream):
@@ -170,6 +220,18 @@ class TelemetryData(object):
     """
     raise NotImplementedError
   
+  def serialize_data(self, value):
+    """Returns the serialized version (as a string) of this data given a value.
+    Can raise a ValueError if there is a conversion issue.
+    """
+    raise NotImplementedError
+  
+  def get_latest_value(self):
+    return self.latest_value
+  
+  def set_latest_value(self, value):
+    self.latest_value = value
+  
   
   
 class UnknownNumericSubtype(Exception):
@@ -188,6 +250,9 @@ class NumericData(TelemetryData):
   def deserialize_data(self, byte_stream):
     return deserialize_numeric(byte_stream, self.subtype, self.length)
   
+  def serialize_data(self, value):
+    return serialize_numeric(value, self.subtype, self.length)
+  
 datatype_registry[DATATYPE_NUMERIC] = NumericData
 
 class NumericArray(TelemetryData):
@@ -205,6 +270,15 @@ class NumericArray(TelemetryData):
     out = []
     for _ in range(self.count):
       out.append(deserialize_numeric(byte_stream, self.subtype, self.length))
+    return out
+  
+  def serialize_data(self, value):
+    if len(value) != self.count:
+      raise ValueError("Length mismatch: got %i, expected %i"
+                       % (len(value), self.count))
+    out = ""
+    for elt in value:
+      out += serialize_numeric(elt, self.subtype, self.length)
     return out
   
 datatype_registry[DATATYPE_NUMERIC_ARRAY] = NumericArray
@@ -281,7 +355,9 @@ class DataPacket(TelemetryPacket):
       data_def = context.get_data_def(data_id)
       if not data_def:
         raise UndefinedDataIdError("Received DataId %02x not defined in header" % data_id)
-      self.data[data_def.data_id] = data_def.deserialize_data(byte_stream)
+      data_value = data_def.deserialize_data(byte_stream)
+      data_def.set_latest_value(data_value)
+      self.data[data_def.data_id] = data_value 
 
   def get_data_dict(self):
     return self.data
@@ -385,6 +461,22 @@ class TelemetrySerial(object):
       else:
         raise RuntimeError("Unknown DecoderState")
 
+  def transmit_set_packet(self, data_def, value):
+    packet = ""
+    packet += serialize_uint8(OPCODE_DATA)
+    packet += serialize_uint8(data_def.data_id)
+    packet += data_def.serialize_data(value)
+    packet += serialize_uint8(DATAID_TERMINATOR)
+    
+    header = ""
+    for elt in SOF_BYTE:
+      header += chr(elt)
+    header += serialize_uint16(len(packet))
+  
+    # TODO: add CRC support
+  
+    self.serial.write(header + packet)
+  
   def next_rx_packet(self):
     if self.rx_packets:
       return self.rx_packets.popleft()
