@@ -27,18 +27,18 @@
 \maketitle
 
 \section{Introduction}
-The telemetry library is designed to provide a simple and efficient way to get data off an embedded platform and both visualized and logged on a PC. The intended use case is streaming data from an embedded system to a PC through a UART (possibly on top of either a USB or Bluetooth transport layer) interface. Since data definitions are transmitted, user-side code changes can be limited to the data source side, eliminating the need to keep both the source-side and sink-side code in sync.
+The telemetry library is designed to provide a simple and efficient way to get data off an embedded platform and both visualized and logged on a PC. The intended use case is streaming data from an embedded system to a PC through an UART interface (possibly on top of either a USB or Bluetooth transport layer). Since data definitions are transmitted, user-side code changes can be limited to the data source side, eliminating the need to keep both the source-side and sink-side code in sync.
 
-The server-side (data source) code is written in C++ and designed with embedded constraints in mind (mainly, no dynamic memory alocation is used). Templated classes are used to support most native data types and a hardware abstraction layer allows multiple platforms (including Arduino and mBed) to be supported.
+The server-side (data source) code is written in C++ and designed with embedded constraints in mind (mainly, no dynamic memory alocation is done). Templated classes are used to support most native data types and a hardware abstraction layer allows multiple platforms (including Arduino and mBed) to be supported.
 
-The client-side (data sink) code is written in Python. A basic telemetry protocol parser is provided that separates and interprets telemetry packets and other data from the received stream. A matplotlib-based GUI is provided on top of the parser that visualizes numeric data as a line plot and array-numeric data as a waterfall / spectrogram style plot.
+The client-side (data sink) code is written in Python. A basic telemetry protocol parser is provided that separates and interprets telemetry packets and other data from the received stream. A matplotlib-based GUI is also provided on top of the parser that visualizes numeric data as a line plot and array-numeric data as a waterfall / spectrogram style plot.
 
-A protocol spec is also provided allowing other implementation of either the server and client. It short, it defines a binary wire format along with packet structures for data and headers.
+A protocol spec is also given allowing other implementations of either the server and client. It short, it defines a binary wire format along with packet structures for data and headers.
 
 \section{Prerequisites}
 The following software is necessary for a basic telemetry install:
 \begin{itemize}
-  \item \href{https://www.python.org/downloads/}{Python} (this was tested and written for 3.4, but may work on 2.7)
+  \item \href{https://www.python.org/downloads/}{Python} (this document was written for 3.4, but may work on 2.7)
 \end{itemize}
 
 The following software is necessary for the telemetry plotter GUI:
@@ -74,7 +74,9 @@ The following software is necessary for the telemetry plotter GUI:
 \section{Known Issues}
 \subsection{Telemetry framework}
 \begin{itemize}
-  \item None yet
+  \item No CRC support yet.
+  \item Packets do not time out on the receiver side yet.
+  \item Receivers can't request that the header packet be re-sent.
 \end{itemize}
 
 \subsection{Plotter GUI}
@@ -84,7 +86,7 @@ The following software is necessary for the telemetry plotter GUI:
 
 \subsection{mBed HAL}
 \begin{itemize}
-  \item MODSERIAL and Serial putc are highly inefficient, and the overhead is noticable at high data rates (at 1 Mbaud, the overhead is about 3x the time to transmit the byte). Using MODDMA may increase efficiency.
+  \item MODSERIAL and Serial putc is highly inefficient for multi-byte data, having high overhead (at 1 Mbaud, the overhead is about 3x the time to transmit the byte). Using MODDMA may increase efficiency.
 \end{itemize}
 
 \subsection{Arduino HAL}
@@ -92,14 +94,15 @@ The following software is necessary for the telemetry plotter GUI:
   \item None yet
 \end{itemize}
 
-\section{Quick Start Guide}
-\subsection{Transmit-side}
+\section{Transmit-side Quick Start Guide}
 All the transmit-side code is contained in (repository base)\texttt{/server-cpp}.
+
 \subsection{Build system setup}
 \begin{itemize}
   \item Add all the \texttt{.h} header files to your compiler's include path.
   \item Add all the \texttt{.cpp} source files to your build path - these should end up compiled into your code.
 \end{itemize}
+
 \subsection{Code setup}
 \begin{itemize}
   \item Include the telemetry header in your code:
@@ -108,9 +111,10 @@ All the transmit-side code is contained in (repository base)\texttt{/server-cpp}
   \end{lstlisting}
   \item Include the HAL for your platform: either \texttt{telemetry-arduino.h} or \texttt{telemetry-mbed.h}
 \end{itemize}
+
 \subsection{Usage}
 \begin{itemize}
-  \item Instantiate both a telemetry HAL and a \texttt{Telemetry} object: \\
+  \item Instantiate both a telemetry HAL (again, for your platform) and a \texttt{Telemetry} object: \\
   Arduino example using \texttt{Serial1} as the UART pins:
   \begin{lstlisting}[language=C++]
 telemetry::ArduinoHalInterface telemetry_hal(Serial1);
@@ -131,7 +135,7 @@ telemetry::NumericArray<uint16_t, 128> linescan(telemetry_obj, "linescan", "Line
   The constructor signatures are:
   \begin{itemize}
     \item \texttt{template <typename T>\\ NumericData(Telemetry\& telemetry\_container, const char* internal\_name, const char* display\_name, const char* units, T init\_value)} \\
-    \texttt{NumericData} describes numeric data of type \texttt{T}. Only 8-, 16- and 32-bit integers and single-precision floats are currently supported (but why would you use double-precision on a dinky embedded processor?!).
+    \texttt{NumericData} describes numeric data of type \texttt{T}. Only 8-, 16- and 32-bit unsigned integers and single-precision floats are currently supported (but why would you use double-precision on a dinky embedded processor?!).
     \begin{itemize}
       \item \texttt{telemetry\_container}: a reference to a \texttt{Telemetry} object to associate this data with.
       \item \texttt{internal\_name}: a string giving this object an internal name to be referenced in code.
@@ -140,7 +144,7 @@ telemetry::NumericArray<uint16_t, 128> linescan(telemetry_obj, "linescan", "Line
       \item \texttt{init\_value}: initial value.
     \end{itemize}
     \item \texttt{template <typename T, uint32\_t array\_count>\\ NumericArray(Telemetry\& telemetry\_container, const char* internal\_name, const char* display\_name, const char* units, T elem\_init\_value)} \\
-    \texttt{NumericArray} describes an array of numeric objects of type \texttt{T}. Same constraints apply as to NumericData. The array size \texttt{array\_count} is constant to avoid dynamic memory allocations.
+    \texttt{NumericArray} describes an array of numeric objects of type \texttt{T}. Same constraints apply as from NumericData. The array size \texttt{array\_count} is a template parameter (constant of sorts) to avoid dynamic memory allocations.
     \begin{itemize}
       \item \texttt{telemetry\_container}: a reference to a \texttt{Telemetry} object to associate this data with.
       \item \texttt{internal\_name}: a string giving this object an internal name to be referenced in code.
@@ -169,7 +173,21 @@ telemetry_obj.do_io();
   \item Note that you may continue to use the UART to transmit other data (like \texttt{printf}s) as long as this is not done during the middle of a \texttt{Telemetry} \texttt{do\_io} operation or contains the start-of-frame sequence (\texttt{0x05 0x39}).
 \end{itemize}
 
-\subsection{Receive-side}
+\section{Receive-side Quick Start Guide}
+All the receive-side code is contained in (repository base)\texttt{/client-py}.
+\subsection{Plotter}
+Run the plotter by going into (repository base)\texttt{/client-py} and running \texttt{python plotter.py} and passing in the serial port, baud rate (optional, defaults to 38400), independent variable (optional, defaults to \texttt{time}), and independent variable timespan (optional, defaults to 10000). The arguments list can be obtained through running \texttt{python plotter.py --help}
 
-That's it.
+The plotter must be running when the header is transmitted, otherwise it will fail to decode the data packets (and notify you of such). The plotter will automatically reinitialize upon receiving a new header.
+
+This simple plotter graphs all the data against a selected independent variable (like time). Numeric data is plotted as a line graph and array-numeric data is plotted as a waterfall / spectrograph-style graph in real-time. Regular UART data (like from \texttt{printf}s) is also written to the console in real-time. All received data, including from \texttt{printf}s, is logged to a CSV.
+
+\subsection{Console Demo}
+The console demo is also in (repository base)\texttt{/client-py} and can be run with \texttt{python console.py}. This simply prints the parsed received packets and can be useful if trying to learn the parser API.
+
+\subsection{Parser Library}
+The parser code is in (repository base)\texttt{/client-py/telemetry/parser.py}. No official documentation is currently available, but docstrings are scattered in important places and you can reference the console demo or plotter code.
+\\
+\\
+That's all, folks!
 \end{document}
