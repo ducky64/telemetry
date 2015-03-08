@@ -11,8 +11,16 @@
 
 \maketitle
 
+\section{Introduction}
+The telemetry library is designed to provide a simple and efficient way to get data off an embedded platform and both visualized and logged on a PC. The intended use case is streaming data from an embedded system to a PC through a UART (possibly on top of either a USB or Bluetooth transport layer) interface.
+
+The server-side (data source) code is written in C++ and designed with embedded constraints in mind (mainly, no dynamic memory alocation is used). Templated classes are used to support most native data types and a hardware abstraction layer allows multiple platforms (including Arduino and mBed) to be supported.
+
+The client-side (data sink) code is written in Python. A basic telemetry protocol parser is provided that separates and interprets telemetry packets and other data from the received stream. A matplotlib-based GUI is provided on top of the parser that visualizes numeric data as a line plot and array-numeric data as a waterfall / spectrogram style plot.
+
+A protocol spec is also provided allowing other implementation of either the server and client. It defines a binary wire format for both data and header packets.
+
 \section{Prerequisites}
-\label{sec:prereqs}
 The following software is necessary for a basic telemetry install:
 \begin{itemize}
   \item \href{https://www.python.org/downloads/}{Python 3 (3.4 or later)}
@@ -54,9 +62,14 @@ The following software is necessary for the telemetry plotter GUI:
   \item None yet
 \end{itemize}
 
+\subsection{Plotter GUI}
+\begin{itemize}
+  \item Waterfall / spectrogram-style plotting is highly inefficient (but serviceable).
+\end{itemize}
+
 \subsection{mBed HAL}
 \begin{itemize}
-  \item MODSERIAL and Serial putc are highly inefficient, and the overhead is noticable at high data rates (at 1 Mbaud, the overhead is longer than the time to transmit the byte). Using MODDMA may increase efficiency.
+  \item MODSERIAL and Serial putc are highly inefficient, and the overhead is noticable at high data rates (at 1 Mbaud, the overhead is about 3x the time to transmit the byte). Using MODDMA may increase efficiency.
 \end{itemize}
 
 \subsection{Arduino HAL}
