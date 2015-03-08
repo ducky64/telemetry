@@ -8,7 +8,7 @@ from telemetry.parser import *
 plot_registry = {}
 
 class BasePlot():
-  def __init__(self, indep_def, dep_def, indep_span, subplot, hide_indep_axis=False):
+  def __init__(self, indep_def, dep_def, indep_span, subplot):
     self.indep_span = indep_span
     self.indep_name = indep_def.internal_name
     self.dep_name = dep_def.internal_name
@@ -18,10 +18,6 @@ class BasePlot():
       self.limits = None
       
     self.subplot = subplot
-    self.subplot.set_title("%s: %s (%s)"           
-                           % (dep_def.internal_name, dep_def.display_name, dep_def.units))
-    
-    plt.setp(subplot.get_xticklabels(), visible=not hide_indep_axis)
     
   def update_from_packet(self, packet):
     raise NotImplementedError 
@@ -33,8 +29,8 @@ class BasePlot():
     raise NotImplementedError
     
 class NumericPlot(BasePlot):
-  def __init__(self, indep_def, dep_def, indep_span, subplot, hide_indep_axis=False):
-    super(NumericPlot, self).__init__(indep_def, dep_def, indep_span, subplot, hide_indep_axis)
+  def __init__(self, indep_def, dep_def, indep_span, subplot):
+    super(NumericPlot, self).__init__(indep_def, dep_def, indep_span, subplot)
     self.line, = subplot.plot([0])
     
     self.indep_data = deque()
@@ -82,8 +78,8 @@ class NumericPlot(BasePlot):
 plot_registry[NumericData] = NumericPlot
 
 class WaterfallPlot(BasePlot):
-  def __init__(self, indep_def, dep_def, indep_span, subplot, hide_indep_axis=False):
-    super(WaterfallPlot, self).__init__(indep_def, dep_def, indep_span, subplot, hide_indep_axis)
+  def __init__(self, indep_def, dep_def, indep_span, subplot):
+    super(WaterfallPlot, self).__init__(indep_def, dep_def, indep_span, subplot)
     self.count = dep_def.count
     
     self.x_mesh = [0] * (self.count + 1)
@@ -94,9 +90,6 @@ class WaterfallPlot(BasePlot):
     self.y_mesh = np.array([self.y_array])
     
     self.data_array = None
-
-    plt.setp(subplot.get_xticklabels(), visible=not hide_indep_axis)
-    
     self.indep_data = deque()
     self.quad = None
   
@@ -142,7 +135,7 @@ if __name__ == "__main__":
   timespan = 10000
   independent_axis_name = 'time'
   
-  telemetry = TelemetrySerial(serial.Serial("COM61", baudrate=1000000))
+  telemetry = TelemetrySerial(serial.Serial("COM15", baudrate=115200))
   all_plotdata = []
   fig = plt.figure()
   latest_indep = [0]
@@ -173,9 +166,13 @@ if __name__ == "__main__":
             continue
 
           ax = fig.add_subplot(len(data_defs), 1, len(data_defs)-plot_idx)
+          ax.set_title("%s: %s (%s)"           
+              % (data_def.internal_name, data_def.display_name, data_def.units))
+          if plot_idx != 0:
+            plt.setp(ax.get_xticklabels(), visible=False)
+          
           plotdata = plot_registry[data_def.__class__](
-                         indep_def, data_def, timespan, ax, 
-                         hide_indep_axis=(plot_idx != 0))
+                         indep_def, data_def, timespan, ax)
           all_plotdata.append(plotdata)
           
           print("Found dependent data %s" % data_def.internal_name)
@@ -207,5 +204,5 @@ if __name__ == "__main__":
       for plotdata in all_plotdata:
         plotdata.set_indep_range([latest_indep[0] - timespan, latest_indep[0]])
         
-  ani = animation.FuncAnimation(fig, update, interval=50)
+  ani = animation.FuncAnimation(fig, update, interval=10)
   plt.show()
