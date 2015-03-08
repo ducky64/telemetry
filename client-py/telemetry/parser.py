@@ -1,9 +1,5 @@
-from collections import namedtuple, deque
+from collections import deque
 import struct
-import time
-
-import serial
-from test.test_dis import outer
 
 # lifted from https://stackoverflow.com/questions/36932/how-can-i-represent-an-enum-in-python
 def enum(*sequential, **named):
@@ -106,7 +102,7 @@ class MissingKvrError(TelemetryDeserializationError):
   pass
 
 datatype_registry = {}
-class TelemetryData:
+class TelemetryData(object):
   """Abstract base class for telemetry data ID definitions.
   """
   def __repr__(self):
@@ -223,7 +219,7 @@ class UndefinedDataIdError(TelemetryDeserializationError):
   pass
 
 opcodes_registry = {}
-class TelemetryPacket:
+class TelemetryPacket(object):
   """Abstract base class for telemetry packets.
   """
   @staticmethod
@@ -300,7 +296,7 @@ opcodes_registry[OPCODE_DATA] = DataPacket
 
 
 
-class TelemetryContext:
+class TelemetryContext(object):
   """Context for telemetry communications, containing the setup information in
   the header.
   """
@@ -315,7 +311,7 @@ class TelemetryContext:
 
 
 
-class TelemetrySerial:
+class TelemetrySerial(object):
   """Telemetry serial receiver state machine. Separates out telemetry packets
   from the rest of the stream.
   """
@@ -400,26 +396,3 @@ class TelemetrySerial:
       return self.data_buffer.popleft()
     else:
       return None
-
-if __name__ == "__main__":
-  telemetry = TelemetrySerial(serial.Serial("COM15", baudrate=115200))
-  while True:
-    telemetry.process_rx()
-    time.sleep(0.1)
-
-    while True:
-      next_packet = telemetry.next_rx_packet()
-      if not next_packet:
-        break
-      print('')
-      print(next_packet)
-    
-    while True:
-      next_byte = telemetry.next_rx_byte()
-      if next_byte is None:
-        break
-      try:
-        print(chr(next_byte), end='')
-      except UnicodeEncodeError:
-        pass
-          

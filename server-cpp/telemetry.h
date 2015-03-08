@@ -6,12 +6,16 @@
 
 namespace telemetry {
 
+#ifndef TELEMETRY_DATA_LIMIT
+#define TELEMETRY_DATA_LIMIT 16
+#endif
+
 // Maximum number of DataInterface objects a Telemetry object can hold.
 // Used for array sizing.
-const size_t MAX_DATA_PER_TELEMETRY = 16;
+const size_t MAX_DATA_PER_TELEMETRY = TELEMETRY_DATA_LIMIT;
 
-// Maximum payload size for telemetry packet.
-const size_t MAX_PACKET_LENGTH = 65535;
+// Maximum payload size for a received telemetry packet.
+const size_t MAX_RECEIVE_PACKET_LENGTH = 255;
 
 // Various wire protocol constants.
 const uint8_t SOF1 = 0x05;  // start of frame byte 1

@@ -108,12 +108,6 @@ FixedLengthTransmitPacket::FixedLengthTransmitPacket(HalInterface& hal,
         hal(hal),
         length(length),
         count(0) {
-  if (length > MAX_PACKET_LENGTH) {
-    hal.do_error("Packet exceeds maximum length");
-    valid = false;
-    return;
-  }
-
   hal.transmit_byte(SOF1);
   hal.transmit_byte(SOF2);
 
