@@ -227,10 +227,10 @@ void FixedLengthTransmitPacket::write_uint32(uint32_t data) {
 void FixedLengthTransmitPacket::write_float(float data) {
   // TODO: THIS IS ENDIANNESS DEPENDENT, ABSTRACT INTO HAL?
   uint8_t *float_array = (uint8_t*) &data;
-  write_byte(float_array[0]);
-  write_byte(float_array[1]);
-  write_byte(float_array[2]);
   write_byte(float_array[3]);
+  write_byte(float_array[2]);
+  write_byte(float_array[1]);
+  write_byte(float_array[0]);
 }
 
 void FixedLengthTransmitPacket::finish() {
@@ -302,12 +302,12 @@ float ReceivePacketBuffer::read_float() {
     return 0;
   }
   read_loc += 4;
-  float out;
+  float out = 0;
   uint8_t* out_array = (uint8_t*)&out;
-  out_array[0] = ((uint32_t)data[read_loc - 4] << 24);
-  out_array[1] = ((uint32_t)data[read_loc - 3] << 24);
-  out_array[2] = ((uint32_t)data[read_loc - 2] << 24);
-  out_array[3] = ((uint32_t)data[read_loc - 1] << 24);
+  out_array[0] = data[read_loc - 1];
+  out_array[1] = data[read_loc - 2];
+  out_array[2] = data[read_loc - 3];
+  out_array[3] = data[read_loc - 4];
   return out;
 }
 

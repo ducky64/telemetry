@@ -130,7 +130,7 @@ def serialize_numeric(value, subtype, length):
     else:
       raise ValueError("Unknown uint length %02x" % length)
   elif subtype == NUMERIC_SUBTYPE_FLOAT:
-    if length == 1:
+    if length == 4:
       return serialize_float(value)
     else:
       raise ValueError("Unknown float length %02x" % length)

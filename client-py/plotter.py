@@ -254,7 +254,7 @@ if __name__ == "__main__":
   parser.add_argument('--span', metavar='s', type=int, default=10000,
                       help='independent variable axis span')
   parser.add_argument('--log_prefix', metavar='f', default='telemetry',
-                      help='filename prefix for logging output')
+                      help='filename prefix for logging output, set to empty to disable logging')
   args = parser.parse_args()
  
   telemetry = TelemetrySerial(serial.Serial(args.port, args.baud))
@@ -295,7 +295,8 @@ if __name__ == "__main__":
         filename = '%s-%s.csv' %  (args.log_prefix, timestring)
         if csv_logger[0] is not None:
           csv_logger[0].finish()
-        csv_logger[0] = CsvLogger(filename, packet)
+        if args.log_prefix:
+          csv_logger[0] = CsvLogger(filename, packet)
         
       elif isinstance(packet, DataPacket):
         if indep_def is not None:
@@ -347,7 +348,9 @@ if __name__ == "__main__":
           break
         except ValueError as e:
           error = str(e)
-        
+        except SyntaxError as e:
+          error = str(e)
+                  
     return set_plot_dialog_inner
         
   def on_click(event):

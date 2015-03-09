@@ -19,7 +19,7 @@ void MbedHal::transmit_byte(uint8_t data) {
 }
 
 size_t MbedHal::rx_available() {
-  return serial.readable();
+  return serial.rxBufferGetCount();
 }
 
 uint8_t MbedHal::receive_byte() {

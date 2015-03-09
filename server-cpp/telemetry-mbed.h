@@ -3,12 +3,13 @@
 
 #include "telemetry.h"
 #include "mbed.h"
+#include "MODSERIAL.h"
 
 namespace telemetry {
 
 class MbedHal : public HalInterface {
 public:
-  MbedHal(Serial& serial) :
+  MbedHal(MODSERIAL& serial) :
     serial(serial) {}
 
   virtual void transmit_byte(uint8_t data);
@@ -18,7 +19,7 @@ public:
   virtual void do_error(const char* message);
 
 protected:
-  Serial& serial;
+  MODSERIAL& serial;
 };
 
 }
