@@ -1,5 +1,11 @@
 from __future__ import print_function
+import ast
 from collections import deque
+import csv
+import datetime 
+
+from tkinter import *
+import tkinter.simpledialog as simpledialog
 
 from matplotlib import pyplot as plt
 import matplotlib.animation as animation
@@ -22,8 +28,11 @@ class BasePlot(object):
     indep_span -- the span of the independent variable to keep track of
     """
     self.indep_span = indep_span
-    self.indep_name = indep_def.internal_name
-    self.dep_name = dep_def.internal_name
+    self.indep_id = indep_def.data_id
+    self.dep_id = dep_def.data_id
+    
+    self.dep_def = dep_def
+    
     if dep_def.limits[0] != dep_def.limits[1]:
       self.limits = dep_def.limits
     else:
@@ -43,6 +52,12 @@ class BasePlot(object):
     """
     raise NotImplementedError
 
+  def get_name(self):
+    return self.dep_def.display_name
+
+  def get_dep_def(self):
+    return self.dep_def
+
 class NumericPlot(BasePlot):
   """A plot of a single numeric dependent variable vs. a single independent
   variable
@@ -56,14 +71,14 @@ class NumericPlot(BasePlot):
   
   def update_from_packet(self, packet):
     assert isinstance(packet, DataPacket)
-    data_names = packet.get_data_names()
+    indep_val = packet.get_data_by_id(self.indep_id)
+    dep_val = packet.get_data_by_id(self.dep_id)
     
-    if self.indep_name in data_names and self.dep_name in data_names:
-      latest_indep = packet.get_data(self.indep_name)
-      self.indep_data.append(latest_indep)
-      self.dep_data.append(packet.get_data(self.dep_name))
+    if indep_val is not None and dep_val is not None:
+      self.indep_data.append(indep_val)
+      self.dep_data.append(dep_val)
       
-      indep_cutoff = latest_indep - self.indep_span
+      indep_cutoff = indep_val - self.indep_span
       
       while self.indep_data[0] < indep_cutoff:
         self.indep_data.popleft()
@@ -108,18 +123,18 @@ class WaterfallPlot(BasePlot):
   
   def update_from_packet(self, packet):
     assert isinstance(packet, DataPacket)
-    data_names = packet.get_data_names()
-
-    if self.indep_name in data_names and self.dep_name in data_names:
-      latest_indep = packet.get_data(self.indep_name)
-      self.x_mesh = np.vstack([self.x_mesh, np.array([[latest_indep] * (self.count + 1)])])
+    indep_val = packet.get_data_by_id(self.indep_id)
+    dep_val = packet.get_data_by_id(self.dep_id)
+    
+    if indep_val is not None and dep_val is not None:
+      self.x_mesh = np.vstack([self.x_mesh, np.array([[indep_val] * (self.count + 1)])])
       self.y_mesh = np.vstack([self.y_mesh, np.array(self.y_array)])
       if self.data_array is None:
-        self.data_array = np.array([packet.get_data(self.dep_name)])
+        self.data_array = np.array([dep_val])
       else:
-        self.data_array = np.vstack([self.data_array, packet.get_data(self.dep_name)])
+        self.data_array = np.vstack([self.data_array, dep_val])
         
-      indep_cutoff = latest_indep - self.indep_span
+      indep_cutoff = indep_val - self.indep_span
       
       while self.x_mesh[0][0] < indep_cutoff:
         self.x_mesh = np.delete(self.x_mesh, (0), axis=0)
@@ -144,7 +159,7 @@ plot_registry[NumericData] = NumericPlot
 plot_registry[NumericArray] = WaterfallPlot
 
 
-def create_subplots_from_header(packet, figure, indep_name='time', indep_span=10000):
+def subplots_from_header(packet, figure, indep_def, indep_span=10000):
   """Instantiate subplots and plots from a received telemetry HeaderPacket.
   The default implementation creates a new plot for each dependent variable,
   but you can customize it to do better things.
@@ -155,49 +170,79 @@ def create_subplots_from_header(packet, figure, indep_name='time', indep_span=10
   indep_name -- internal_name of the independent variable.
   indep_span -- span of the independent variable to display.
   
-  Returns: two element tuple of a list of matplotlib subplots and list of
-    BasePlot objects.
+  Returns: a dict of matplotlib subpolots to list of contained BasePLot objects. 
   """
   assert isinstance(packet, HeaderPacket)
   
-  indep_def = None
-  data_defs = []
-  for _, data_def in reversed(sorted(packet.get_data_defs().items())):
-    if data_def.internal_name == indep_name:
-      indep_def = data_def 
-    else:
-      data_defs.append(data_def)
-
   if indep_def is None:
-    print("Unable to find independent variable '%s'" % indep_name)
+    print("Unable to find independent variable '%s'" % indep_def.internal_name)
     return [], []
 
-  subplots = []
-  plots = []
+  data_defs = []
+  for _, data_def in reversed(sorted(packet.get_data_defs().items())):
+    if data_def != indep_def:
+      data_defs.append(data_def)
+
+  plots_dict = {}
 
   for plot_idx, data_def in enumerate(data_defs):
-    if data_def.internal_name == indep_name:
-      continue
-
     ax = figure.add_subplot(len(data_defs), 1, len(data_defs)-plot_idx)
     ax.set_title("%s: %s (%s)"           
         % (data_def.internal_name, data_def.display_name, data_def.units))
     if plot_idx != 0:
       plt.setp(ax.get_xticklabels(), visible=False)
     
-    print(indep_def)
-    print(data_def)
-    
     assert data_def.__class__ in plot_registry, "Unable to handle TelemetryData type %s" % data_def.__class__.__name__ 
     plot = plot_registry[data_def.__class__](ax, indep_def, data_def, 
                                              indep_span)
-    subplots.append(ax)
-    plots.append(plot)
+    plots_dict[ax] = [plot]
     
     print("Found dependent data %s" % data_def.internal_name)
 
-  return subplots, plots
+  return plots_dict
 
+class CsvLogger(object):
+  def __init__(self, name, header_packet):
+    csv_header = []
+    internal_name_dict = {}
+    display_name_dict = {}
+    units_dict = {}
+        
+    for _, data_def in sorted(header_packet.get_data_defs().items()):
+      csv_header.append(data_def.data_id)
+      internal_name_dict[data_def.data_id] = data_def.internal_name
+      display_name_dict[data_def.data_id] = data_def.display_name
+      units_dict[data_def.data_id] = data_def.units
+    csv_header.append("data")  # for non-telemetry data
+                         
+    self.csv_file = open(name, 'w', newline='')
+    self.csv_writer = csv.DictWriter(self.csv_file, fieldnames=csv_header)
+
+    self.csv_writer.writerow(internal_name_dict)
+    self.csv_writer.writerow(display_name_dict)
+    self.csv_writer.writerow(units_dict)
+    
+    self.pending_data = ""
+    
+  def add_char(self, data):
+    if data == '\n' or data == '\r':
+      if self.pending_data:
+        self.csv_writer.writerow({'data': self.pending_data})
+        self.pending_data = ''
+    else:
+      self.pending_data += data
+    
+  def write_data(self, data_packet):
+    if self.pending_data:
+      self.csv_writer.writerow({'data': self.pending_data})
+      self.pending_data = ""
+    self.csv_writer.writerow(data_packet.get_data_dict())
+        
+  def finish(self):
+    if self.pending_data:
+      self.csv_writer.writerow({'data': self.pending_data})
+    self.csv_file.close()
+  
 if __name__ == "__main__":
   import argparse
   parser = argparse.ArgumentParser(description='Telemetry data plotter.')
@@ -208,17 +253,20 @@ if __name__ == "__main__":
                       help='internal name of independent axis')
   parser.add_argument('--span', metavar='s', type=int, default=10000,
                       help='independent variable axis span')
+  parser.add_argument('--log_prefix', metavar='f', default='telemetry',
+                      help='filename prefix for logging output')
   args = parser.parse_args()
  
   telemetry = TelemetrySerial(serial.Serial(args.port, args.baud))
   
   fig = plt.figure()
   
-  # note: mutable elements are in lists to allow access from inner function
-  # update
+  # note: mutable elements are in lists to allow access from nested functions
+  indep_def = [None]  # note: data ID 0 is invalid
   latest_indep = [0]
-  subplots = [[]]
-  plots = [[]]
+  plots_dict = [[]]
+  
+  csv_logger = [None]
   
   def update(data):
     telemetry.process_rx()
@@ -232,19 +280,36 @@ if __name__ == "__main__":
       if isinstance(packet, HeaderPacket):
         fig.clf()
         
-        subplots[0], plots[0] = create_subplots_from_header(packet, fig,
-                                                            args.indep_name,
-                                                            args.span)
-
+        # get independent variable data ID
+        indep_def[0] = None
+        for _, data_def in packet.get_data_defs().items():
+          if data_def.internal_name == args.indep_name:
+            indep_def[0] = data_def
+        # TODO warn on missing indep id or duplicates
+        
+        # instantiate plots
+        plots_dict[0] = subplots_from_header(packet, fig, indep_def[0], args.span)
+        
+        # prepare CSV file and headers
+        timestring = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = '%s-%s.csv' %  (args.log_prefix, timestring)
+        if csv_logger[0] is not None:
+          csv_logger[0].finish()
+        csv_logger[0] = CsvLogger(filename, packet)
+        
       elif isinstance(packet, DataPacket):
-        indep_value = packet.get_data(args.indep_name)
-        if indep_value is not None:
-          latest_indep[0] = indep_value
-          
-        for plot in plots[0]:
-          plot.update_from_packet(packet)
-          
-        plot_updated = True
+        if indep_def is not None:
+          indep_value = packet.get_data_by_id(indep_def[0].data_id)
+          if indep_value is not None:
+            latest_indep[0] = indep_value
+            for plot_list in plots_dict[0].values():
+              for plot in plot_list:
+                plot.update_from_packet(packet)
+            plot_updated = True
+        
+        if csv_logger[0]:
+          csv_logger[0].write_data(packet)
+        
       else:
         raise Exception("Unknown received packet %s" % repr(packet))
       
@@ -254,14 +319,54 @@ if __name__ == "__main__":
         break
       try:
         print(chr(next_byte), end='')
+        if csv_logger[0]:
+          csv_logger[0].add_char(chr(next_byte))
       except UnicodeEncodeError:
         pass
 
     if plot_updated:
-      for plot in plots[0]:
-        plot.update_show()  
-      for subplot in subplots[0]:
+      for plot_list in plots_dict[0].values():
+        for plot in plot_list:
+          plot.update_show()  
+      for subplot in plots_dict[0].keys():
         subplot.set_xlim([latest_indep[0] - args.span, latest_indep[0]])
         
+  def set_plot_dialog(plot):
+    def set_plot_dialog_inner():
+      got = plot.get_dep_def().get_latest_value()
+      error = ""
+      while True:
+        got = simpledialog.askstring("Set remote value",
+                                     "Set %s\n%s" % (plot.get_name(), error),
+                                     initialvalue=got)
+        if got is None:
+          break
+        try:
+          parsed = ast.literal_eval(got)
+          telemetry.transmit_set_packet(plot.get_dep_def(), parsed)
+          break
+        except ValueError as e:
+          error = str(e)
+        
+    return set_plot_dialog_inner
+        
+  def on_click(event):
+    ax = event.inaxes
+    if event.dblclick:
+      if ax is None or ax not in plots_dict[0]:
+        return
+      plots_list = plots_dict[0][ax]
+      if len(plots_list) > 0:
+        menu = Menu(fig.canvas.get_tk_widget(), tearoff=0)
+        for plot in plots_list: 
+          menu.add_command(label="Set %s" % plot.get_name(),
+                           command=set_plot_dialog(plot))
+        menu.post(event.guiEvent.x_root, event.guiEvent.y_root)
+      elif len(plots_list == 1):
+        set_plot_dialog(plots_list[0])()
+      else:
+        return
+        
+  fig.canvas.mpl_connect('button_press_event', on_click)
   ani = animation.FuncAnimation(fig, update, interval=30)
   plt.show()

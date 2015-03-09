@@ -101,22 +101,22 @@ def deserialize_string(byte_stream):
 
 def serialize_uint8(value):
   if (not isinstance(value, int)) or (value < 0 or value > 255):
-    raise ValueError
+    raise ValueError("Invalid uint8: %s" % value)
   return struct.pack('!B', value)
 
 def serialize_uint16(value):
   if (not isinstance(value, int)) or (value < 0 or value > 65535):
-    raise ValueError 
+    raise ValueError("Invalid uint16: %s" % value) 
   return struct.pack('!H', value)
 
 def serialize_uint32(value):
   if (not isinstance(value, int)) or (value < 0 or value > 2 ** 32 - 1): 
-    raise ValueError
+    raise ValueError("Invalid uint32: %s" % value)
   return struct.pack('!L', value)
 
 def serialize_float(value):
   if not isinstance(value, Number):
-    raise ValueError
+    raise ValueError("Invalid uintfloat: %s" % value)
   return struct.pack('!f', value)
 
 def serialize_numeric(value, subtype, length):
@@ -221,7 +221,7 @@ class TelemetryData(object):
     raise NotImplementedError
   
   def serialize_data(self, value):
-    """Returns the serialized version (as a string) of this data given a value.
+    """Returns the serialized version (as bytes) of this data given a value.
     Can raise a ValueError if there is a conversion issue.
     """
     raise NotImplementedError
@@ -276,7 +276,7 @@ class NumericArray(TelemetryData):
     if len(value) != self.count:
       raise ValueError("Length mismatch: got %i, expected %i"
                        % (len(value), self.count))
-    out = ""
+    out = bytes()
     for elt in value:
       out += serialize_numeric(elt, self.subtype, self.length)
     return out
@@ -462,15 +462,15 @@ class TelemetrySerial(object):
         raise RuntimeError("Unknown DecoderState")
 
   def transmit_set_packet(self, data_def, value):
-    packet = ""
+    packet = bytes()
     packet += serialize_uint8(OPCODE_DATA)
     packet += serialize_uint8(data_def.data_id)
     packet += data_def.serialize_data(value)
     packet += serialize_uint8(DATAID_TERMINATOR)
     
-    header = ""
+    header = bytes()
     for elt in SOF_BYTE:
-      header += chr(elt)
+      header += serialize_uint8(elt)
     header += serialize_uint16(len(packet))
   
     # TODO: add CRC support
