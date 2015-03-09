@@ -356,13 +356,13 @@ if __name__ == "__main__":
       if ax is None or ax not in plots_dict[0]:
         return
       plots_list = plots_dict[0][ax]
-      if len(plots_list) > 0:
+      if len(plots_list) > 1:
         menu = Menu(fig.canvas.get_tk_widget(), tearoff=0)
         for plot in plots_list: 
           menu.add_command(label="Set %s" % plot.get_name(),
                            command=set_plot_dialog(plot))
         menu.post(event.guiEvent.x_root, event.guiEvent.y_root)
-      elif len(plots_list == 1):
+      elif len(plots_list) == 1:
         set_plot_dialog(plots_list[0])()
       else:
         return

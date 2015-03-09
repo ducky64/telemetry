@@ -462,21 +462,29 @@ class TelemetrySerial(object):
         raise RuntimeError("Unknown DecoderState")
 
   def transmit_set_packet(self, data_def, value):
-    packet = bytes()
+    packet = bytearray()
     packet += serialize_uint8(OPCODE_DATA)
     packet += serialize_uint8(data_def.data_id)
     packet += data_def.serialize_data(value)
     packet += serialize_uint8(DATAID_TERMINATOR)
-    
-    header = bytes()
+    self.transmit_packet(packet)
+  
+  def transmit_packet(self, packet):
+    header = bytearray()
     for elt in SOF_BYTE:
       header += serialize_uint8(elt)
     header += serialize_uint16(len(packet))
-  
+    
+    modified_packet = bytearray()
+    for packet_byte in packet:
+      modified_packet.append(packet_byte)
+      if packet_byte == SOF_BYTE[0]:
+        modified_packet.append(0x00)
+    
+    self.serial.write(header + modified_packet)
+
     # TODO: add CRC support
-  
-    self.serial.write(header + packet)
-  
+      
   def next_rx_packet(self):
     if self.rx_packets:
       return self.rx_packets.popleft()

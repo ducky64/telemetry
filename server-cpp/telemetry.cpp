@@ -105,7 +105,68 @@ void Telemetry::transmit_data() {
 }
 
 void Telemetry::process_received_data() {
-  // TODO: implement me
+  while (hal.rx_available()) {
+    uint8_t rx_byte = hal.receive_byte();
+
+    if (decoder_state == SOF) {
+      if (rx_byte == SOF_SEQ[decoder_pos]) {
+        decoder_pos++;
+        if (decoder_pos >= (sizeof(SOF_SEQ) / sizeof(SOF_SEQ[0]))) {
+          decoder_pos = 0;
+          packet_length = 0;
+          decoder_state = LENGTH;
+        }
+      } else {
+        decoder_pos = 0;
+        // TODO: pass rest of data through
+      }
+    } else if (decoder_state == LENGTH) {
+      packet_length = (packet_length << 8) | rx_byte;
+      decoder_pos++;
+      if (decoder_pos >= LENGTH_SIZE) {
+        decoder_pos = 0;
+        decoder_state = DATA;
+      }
+    } else if (decoder_state == DATA) {
+      received_packet.add_byte(rx_byte);
+      decoder_pos++;
+      if (decoder_pos >= packet_length) {
+        process_received_packet();
+
+        decoder_pos = 0;
+        if (rx_byte == SOF_SEQ[0]) {
+          decoder_state = DATA_DESTUFF_END;
+        } else {
+          decoder_state = SOF;
+        }
+      } else {
+        if (rx_byte == SOF_SEQ[0]) {
+          decoder_state = DATA_DESTUFF;
+        }
+      }
+    } else if (decoder_state == DATA_DESTUFF) {
+      decoder_state = DATA;
+    } else if (decoder_state == DATA_DESTUFF_END) {
+      decoder_state = SOF;
+    }
+  }
+}
+
+void Telemetry::process_received_packet() {
+  uint8_t opcode = received_packet.read_uint8();
+  if (opcode == OPCODE_DATA) {
+    uint8_t data_id = received_packet.read_uint8();
+    while (data_id != DATAID_TERMINATOR) {
+      if (data_id < data_count + 1) {
+        data[data_id - 1]->set_from_packet(received_packet);
+      } else {
+        hal.do_error("Unknown data ID");
+      }
+      data_id = received_packet.read_uint8();
+    }
+  } else {
+    hal.do_error("Unknown opcode");
+  }
 }
 
 size_t Telemetry::receive_available() {
@@ -207,6 +268,7 @@ void ReceivePacketBuffer::add_byte(uint8_t byte) {
 uint8_t ReceivePacketBuffer::read_uint8() {
   if (read_loc + 1 > packet_length) {
     hal.do_error("Read uint8 over length");
+    return 0;
   }
   read_loc += 1;
   return data[read_loc - 1];
@@ -215,6 +277,7 @@ uint8_t ReceivePacketBuffer::read_uint8() {
 uint16_t ReceivePacketBuffer::read_uint16() {
   if (read_loc + 2 > packet_length) {
     hal.do_error("Read uint16 over length");
+    return 0;
   }
   read_loc += 2;
   return ((uint16_t)data[read_loc - 2] << 8)
@@ -224,6 +287,7 @@ uint16_t ReceivePacketBuffer::read_uint16() {
 uint32_t ReceivePacketBuffer::read_uint32() {
   if (read_loc + 4 > packet_length) {
     hal.do_error("Read uint32 over length");
+    return 0;
   }
   read_loc += 4;
   return ((uint32_t)data[read_loc - 4] << 24)
@@ -235,6 +299,7 @@ uint32_t ReceivePacketBuffer::read_uint32() {
 float ReceivePacketBuffer::read_float() {
   if (read_loc + 4 > packet_length) {
     hal.do_error("Read float over length");
+    return 0;
   }
   read_loc += 4;
   float out;

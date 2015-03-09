@@ -20,6 +20,10 @@ const size_t MAX_RECEIVE_PACKET_LENGTH = 255;
 // Various wire protocol constants.
 const uint8_t SOF1 = 0x05;  // start of frame byte 1
 const uint8_t SOF2 = 0x39;  // start of frame byte 2
+const uint8_t SOF_SEQ[] = {0x05, 0x39};
+
+const size_t LENGTH_SIZE = 2;
+
 // TODO: make these length independent
 
 const uint8_t OPCODE_HEADER = 0x81;
@@ -159,6 +163,9 @@ public:
     hal(hal),
     data_count(0),
     received_packet(ReceivePacketBuffer(hal)),
+    decoder_state(SOF),
+    decoder_pos(0),
+    packet_length(0),
     header_transmitted(false),
     packet_tx_sequence(0),
     packet_rx_sequence(0) {};
@@ -197,6 +204,9 @@ protected:
   // data and processing received telemetry packets.
   void process_received_data();
 
+  // Handles a received packet in received_packet.
+  void process_received_packet();
+
   HalInterface& hal;
 
   // Array of associated DataInterface objects. The index+1 is the
@@ -209,6 +219,17 @@ protected:
 
   // Buffer holding the receive packet being assembled / parsed.
   ReceivePacketBuffer received_packet;
+
+  enum DecoderState {
+    SOF,    // reading start-of-frame sequence (or just non-telemetry data)
+    LENGTH, // reading packet length
+    DATA,   // reading telemetry packet data
+    DATA_DESTUFF,     // reading a stuffed byte
+    DATA_DESTUFF_END  // last stuffed byte in a packet
+  } decoder_state;
+
+  size_t decoder_pos;
+  size_t packet_length;
 
   bool header_transmitted;
 
@@ -301,7 +322,9 @@ public:
 
   virtual size_t get_payload_length() { return sizeof(value); }
   virtual void write_payload(TransmitPacketInterface& packet) { serialize_data(value, packet); }
-  virtual void set_from_packet(ReceivePacketBuffer& packet) { value = deserialize_data(packet); }
+  virtual void set_from_packet(ReceivePacketBuffer& packet) {
+    value = deserialize_data(packet);
+    telemetry_container.mark_data_updated(data_id); }
   
   void serialize_data(T data, TransmitPacketInterface& packet);
   T deserialize_data(ReceivePacketBuffer& packet);
@@ -337,7 +360,6 @@ public:
 
   NumericArrayAccessor<T, array_count> operator[] (const int index) {
     // TODO: add bounds checking here
-    // TODO: update detection here, separating read/write
     // TODO: add "frozen" check
     return NumericArrayAccessor<T, array_count>(*this, index);
   }
@@ -377,7 +399,8 @@ public:
   virtual void write_payload(TransmitPacketInterface& packet) {
     for (size_t i=0; i<array_count; i++) { serialize_data(this->value[i], packet); } }
   virtual void set_from_packet(ReceivePacketBuffer& packet) {
-    for (size_t i=0; i<array_count; i++) { value[i] = deserialize_data(packet); } }
+    for (size_t i=0; i<array_count; i++) { value[i] = deserialize_data(packet); }
+    telemetry_container.mark_data_updated(data_id); }
 
   virtual void serialize_data(T data, TransmitPacketInterface& packet) = 0;
   virtual T deserialize_data(ReceivePacketBuffer& packet) = 0;
