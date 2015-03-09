@@ -7,7 +7,7 @@
  * Telemetry HAL for Serial on mBed.
  */
 
-#ifdef MBED
+#ifdef __ARMCC_VERSION
 
 #include "telemetry-mbed.h"
 

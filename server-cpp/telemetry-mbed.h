@@ -1,4 +1,5 @@
-#ifdef MBED
+// Make this less hacky and detect properly
+#ifdef __ARMCC_VERSION
 
 #include "telemetry.h"
 #include "mbed.h"

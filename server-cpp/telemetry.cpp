@@ -14,11 +14,11 @@ namespace telemetry {
 size_t Telemetry::add_data(Data& new_data) {
   if (data_count >= MAX_DATA_PER_TELEMETRY) {
     do_error("MAX_DATA_PER_TELEMETRY limit reached.");
-    return -1;
+    return 0;
   }
   if (header_transmitted) {
     do_error("Cannot add new data after header transmitted.");
-    return -1;
+    return 0;
   }
   data[data_count] = &new_data;
   data_updated[data_count] = true;
