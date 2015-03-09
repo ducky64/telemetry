@@ -29,7 +29,7 @@
 \section{Introduction}
 The telemetry library is designed to provide a simple and efficient way to get data off an embedded platform and both visualized and logged on a PC. The intended use case is streaming data from an embedded system to a PC through an UART interface (possibly on top of either a USB or Bluetooth transport layer). Since data definitions are transmitted, user-side code changes can be limited to the data source side, eliminating the need to keep both the source-side and sink-side code in sync.
 
-The server-side (data source) code is written in C++ and designed with embedded constraints in mind (mainly, no dynamic memory alocation is done). Templated classes are used to support most native data types and a hardware abstraction layer allows multiple platforms (including Arduino and mBed) to be supported.
+The server-side (data source) code is written in C++ and designed with embedded constraints in mind (mainly, no dynamic memory allocation is done). Templated classes are used to support most native data types and a hardware abstraction layer allows multiple platforms (including Arduino and mBed) to be supported.
 
 The client-side (data sink) code is written in Python. A basic telemetry protocol parser is provided that separates and interprets telemetry packets and other data from the received stream. A matplotlib-based GUI is also provided on top of the parser that visualizes numeric data as a line plot and array-numeric data as a waterfall / spectrogram style plot.
 
@@ -127,15 +127,15 @@ telemetry::MbedHal telemetry_hal(telemetry_serial);
 telemetry::Telemetry telemetry_obj(telemetry_hal);
   \end{lstlisting}
   \item Instantiate telemetry data objects:
-  \begin{lstlisting}[language=C++]
-telemetry::NumericData<uint32_t> time_ms(telemetry_obj, "time", "Time", "ms", 0);
-telemetry::NumericData<float> motor_pwm(telemetry_obj, "motor", "Motor PWM", "\%DC", 0);
-telemetry::NumericArray<uint16_t, 128> linescan(telemetry_obj, "linescan", "Linescan", "ADC", 0);  
-  \end{lstlisting}
+\begin{lstlisting}[language=C++]
+telemetry::Numeric<uint32_t> tele_time_ms(telemetry_obj, "time", "Time", "ms", 0);
+telemetry::NumericArray<uint16_t, 128> tele_linescan(telemetry_obj, "linescan", "Linescan", "ADC", 0);  
+telemetry::Numeric<float> tele_motor_pwm(telemetry_obj, "motor", "Motor PWM", "%DC", 0);
+\end{lstlisting}
   The constructor signatures are:
   \begin{itemize}
-    \item \texttt{template <typename T>\\ NumericData(Telemetry\& telemetry\_container, const char* internal\_name, const char* display\_name, const char* units, T init\_value)} \\
-    \texttt{NumericData} describes numeric data of type \texttt{T}. Only 8-, 16- and 32-bit unsigned integers and single-precision floats are currently supported (but why would you use double-precision on a dinky embedded processor?!).
+    \item \texttt{template <typename T>\\ Numeric(Telemetry\& telemetry\_container, const char* internal\_name, const char* display\_name, const char* units, T init\_value)} \\
+    \texttt{Numeric} describes numeric data of type \texttt{T}. Only 8-, 16- and 32-bit unsigned integers and single-precision floats are currently supported (but why would you use double-precision on a dinky embedded processor?!).
     \begin{itemize}
       \item \texttt{telemetry\_container}: a reference to a \texttt{Telemetry} object to associate this data with.
       \item \texttt{internal\_name}: a string giving this object an internal name to be referenced in code.
@@ -144,7 +144,7 @@ telemetry::NumericArray<uint16_t, 128> linescan(telemetry_obj, "linescan", "Line
       \item \texttt{init\_value}: initial value.
     \end{itemize}
     \item \texttt{template <typename T, uint32\_t array\_count>\\ NumericArray(Telemetry\& telemetry\_container, const char* internal\_name, const char* display\_name, const char* units, T elem\_init\_value)} \\
-    \texttt{NumericArray} describes an array of numeric objects of type \texttt{T}. Same constraints apply as from NumericData. The array size \texttt{array\_count} is a template parameter (constant of sorts) to avoid dynamic memory allocations.
+    \texttt{NumericArray} describes an array of numeric objects of type \texttt{T}. Same constraints apply as from Numeric. The array size \texttt{array\_count} is a template parameter (constant of sorts) to avoid dynamic memory allocations.
     \begin{itemize}
       \item \texttt{telemetry\_container}: a reference to a \texttt{Telemetry} object to associate this data with.
       \item \texttt{internal\_name}: a string giving this object an internal name to be referenced in code.
@@ -153,23 +153,40 @@ telemetry::NumericArray<uint16_t, 128> linescan(telemetry_obj, "linescan", "Line
       \item \texttt{elem\_init\_value}: initial value of array elements.
     \end{itemize}
   \end{itemize}
+  \item You can optionally specify additional parameters on the data objects. The only one is the numerical value limits, which can be used to set manual plot bounds on a data visualizer.
+\begin{lstlisting}[language=C++]
+telemetry::Numeric<float> tele_motor_pwm(telemetry_obj, "motor", "Motor PWM", "%DC", 0);
+tele_motor_pwm.set_limits(0, 1);
+\end{lstlisting}
+  Note that this (currently) does not affect the embedded code at all - the values will not be clipped nor will warnings / errors be thrown if an out-of-bounds value if set.
   \item Transmit the data definitions once at the beginning of your code, after you have finished defining all the data.
   \begin{lstlisting}[language=C++]
 telemetry_obj.transmit_header();
   \end{lstlisting}
   \item Load data to be transmitted into the telemetry objects. \\
-  These objects contain the code necessary to transmit and receive telemetry data, but otherwise behave similarly to their template types. For example, you can use the \texttt{motor\_pwm} object as a float:
-  \begin{lstlisting}[language=C++]
-PwmOut MotorOutput(PTA4);
+  These objects contain the code necessary to transmit and receive telemetry data, but otherwise behave similarly to their template types. For example, you can use the \texttt{tele\_linescan} object as an array:
+\begin{lstlisting}[language=C++]
+telemetry::NumericArray<uint16_t, 128> tele_linescan(telemetry_obj, "linescan", "Linescan", "ADC", 0);  
 ...
-motor_pwm = 0.2;
-MotorOutput.write(motor_pwm);
-  \end{lstlisting}
-  Writing to the objects flags the new data to be transmitted on the next telemetry IO operation. Note that the code may not be thread-safe.
-  \item Regularly call \texttt{Telemetry}'s \texttt{do\_io} operation to transmit any updated data and handle received data.
-  \begin{lstlisting}[language=C++]
+uint16_t* data = cam1.read();
+for (uint16_t i=0; i<CAMERA_PIXEL_COUNT; i++) {
+  tele_linescan[i] = data[i];
+}
+\end{lstlisting}
+  Writing to the objects flags the new data to be transmitted on the next telemetry IO operation.
+  \item Regularly call \texttt{Telemetry}'s \texttt{do\_io} operation to transmit any updated data and handle received data (like remote set commands).
+\begin{lstlisting}[language=C++]
 telemetry_obj.do_io();
-  \end{lstlisting}
+\end{lstlisting}
+  \textbf{Note that the code may not be thread-safe.} It scans through all the telemetry data objects, checking for and writing updated values to the output stream.
+  \item Telemetry data objects may have their values set remotely, though they will not latch (i.e. setting it on the embedded-side causes the remotely-set value to be overwritten). As an example, if \texttt{tele\_motor\_pwm} is not set anywhere else, this code allows the motor PWM duty cycle to be set remotely.
+\begin{lstlisting}[language=C++]
+PwmOut MotorOutput(PTA4);
+telemetry::Numeric<float> tele_motor_pwm(telemetry_obj, "motor", "Motor PWM", "%DC", 0);
+...
+telemetry_obj.do_io(); // remote set commands to tele_motor_pwm are processed here
+MotorOutput.write(tele_motor_pwm);
+\end{lstlisting}
   \item Note that you may continue to use the UART to transmit other data (like \texttt{printf}s) as long as this is not done during the middle of a \texttt{Telemetry} \texttt{do\_io} operation or contains the start-of-frame sequence (\texttt{0x05 0x39}).
 \end{itemize}
 
@@ -180,7 +197,11 @@ Run the plotter by going into (repository base)\texttt{/client-py} and running \
 
 The plotter must be running when the header is transmitted, otherwise it will fail to decode the data packets (and notify you of such). The plotter will automatically reinitialize upon receiving a new header.
 
-This simple plotter graphs all the data against a selected independent variable (like time). Numeric data is plotted as a line graph and array-numeric data is plotted as a waterfall / spectrograph-style graph in real-time. Regular UART data (like from \texttt{printf}s) is also written to the console in real-time. All received data, including from \texttt{printf}s, is logged to a CSV.
+This simple plotter graphs all the data against a selected independent variable (like time). Numeric data is plotted as a line graph and array-numeric data is plotted as a waterfall / spectrograph-style graph in real-time. Regular UART data (like from \texttt{printf}s) is also written to the console in real-time. All received data, including from \texttt{printf}s, is logged to a CSV. A new CSV is created each time a new header packet is received, with a timestamped filename.
+
+You can double-click a plot to inspect its latest value numerically and optionally remotely set it to a new value.
+
+If you feel really adventurous, you can also try to mess with the code to plot things in different styles. For example, the plot instantiation function from a received header packet is in \texttt{subplots\_from\_header}. The default just creates a line plot for numeric data and a waterfall plot for array-numeric data. You can make it do fancier things, like overlay a numerical detected track position on the raw camera waterfall plot.
 
 \subsection{Console Demo}
 The console demo is also in (repository base)\texttt{/client-py} and can be run with \texttt{python console.py}. This simply prints the parsed received packets and can be useful if trying to learn the parser API.

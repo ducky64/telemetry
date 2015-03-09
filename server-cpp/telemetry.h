@@ -268,9 +268,9 @@ protected:
 };
 
 template <typename T> 
-class NumericData : public Data {
+class Numeric : public Data {
 public:
-  NumericData(Telemetry& telemetry_container, 
+  Numeric(Telemetry& telemetry_container, 
       const char* internal_name, const char* display_name,
       const char* units, T init_value):
       Data(internal_name, display_name, units),
@@ -292,7 +292,7 @@ public:
     return value;
   }
   
-  NumericData<T>& set_limits(T min, T max) {
+  Numeric<T>& set_limits(T min, T max) {
     min_val = min;
     max_val = max;
     return *this;
