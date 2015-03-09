@@ -174,12 +174,76 @@ void FixedLengthTransmitPacket::write_float(float data) {
 
 void FixedLengthTransmitPacket::finish() {
   if (!valid) {
-    hal.do_error("Finishing invalid packet");
+    hal.do_error("Finish invalid packet");
+    return;
   } else if (count != length) {
-    hal.do_error("Packet under length");
+    hal.do_error("TX packet under length");
+    return;
   }
 
   // TODO: add CRC check here
+}
+
+ReceivePacketBuffer::ReceivePacketBuffer(HalInterface& hal) :
+    hal(hal) {
+  new_packet();
+}
+
+void ReceivePacketBuffer::new_packet() {
+  packet_length = 0;
+  read_loc = 0;
+}
+
+void ReceivePacketBuffer::add_byte(uint8_t byte) {
+  if (packet_length >= MAX_RECEIVE_PACKET_LENGTH) {
+    hal.do_error("RX packet over length");
+    return;
+  }
+
+  data[packet_length] = byte;
+  packet_length++;
+}
+
+uint8_t ReceivePacketBuffer::read_uint8() {
+  if (read_loc + 1 > packet_length) {
+    hal.do_error("Read uint8 over length");
+  }
+  read_loc += 1;
+  return data[read_loc - 1];
+}
+
+uint16_t ReceivePacketBuffer::read_uint16() {
+  if (read_loc + 2 > packet_length) {
+    hal.do_error("Read uint16 over length");
+  }
+  read_loc += 2;
+  return ((uint16_t)data[read_loc - 2] << 8)
+       | ((uint16_t)data[read_loc - 1] << 0);
+}
+
+uint32_t ReceivePacketBuffer::read_uint32() {
+  if (read_loc + 4 > packet_length) {
+    hal.do_error("Read uint32 over length");
+  }
+  read_loc += 4;
+  return ((uint32_t)data[read_loc - 4] << 24)
+       | ((uint32_t)data[read_loc - 3] << 16)
+       | ((uint32_t)data[read_loc - 2] << 8)
+       | ((uint32_t)data[read_loc - 1] << 0);
+}
+
+float ReceivePacketBuffer::read_float() {
+  if (read_loc + 4 > packet_length) {
+    hal.do_error("Read float over length");
+  }
+  read_loc += 4;
+  float out;
+  uint8_t* out_array = (uint8_t*)&out;
+  out_array[0] = ((uint32_t)data[read_loc - 4] << 24);
+  out_array[1] = ((uint32_t)data[read_loc - 3] << 24);
+  out_array[2] = ((uint32_t)data[read_loc - 2] << 24);
+  out_array[3] = ((uint32_t)data[read_loc - 1] << 24);
+  return out;
 }
 
 }

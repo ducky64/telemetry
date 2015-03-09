@@ -89,6 +89,33 @@ public:
   virtual void finish() = 0;
 };
 
+class ReceivePacketBuffer {
+public:
+  ReceivePacketBuffer(HalInterface& hal);
+
+  // Starts a new packet, resetting the packet length and read pointer.
+  void new_packet();
+
+  // Appends a new byte onto this packet, advancing the packet length
+  void add_byte(uint8_t byte);
+
+  // Reads a 8-bit unsigned integer from the packet stream, advancing buffer.
+  uint8_t read_uint8();
+  // Reads a 16-bit unsigned integer from the packet stream, advancing buffer.
+  uint16_t read_uint16();
+  // Reads a 32-bit unsigned integer from the packet stream, advancing buffer.
+  uint32_t read_uint32();
+  // Reads a float from the packet stream, advancing buffer.
+  float read_float();
+
+protected:
+  HalInterface& hal;
+
+  size_t packet_length;
+  size_t read_loc;
+  uint8_t data[MAX_RECEIVE_PACKET_LENGTH];
+};
+
 // Abstract base class for telemetry data objects.
 class Data {
 public:
@@ -115,6 +142,10 @@ public:
   // Writes the payload to the transmit packet. Should be "fast".
   virtual void write_payload(TransmitPacketInterface& packet) = 0;
 
+  // Sets my value from the received packet, interpreting the current packet
+  // read position as my data type.
+  virtual void set_from_packet(ReceivePacketBuffer& packet) = 0;
+
 protected:
   const char* internal_name;
   const char* display_name;
@@ -127,6 +158,7 @@ public:
   Telemetry(HalInterface& hal) :
     hal(hal),
     data_count(0),
+    received_packet(ReceivePacketBuffer(hal)),
     header_transmitted(false),
     packet_tx_sequence(0),
     packet_rx_sequence(0) {};
@@ -175,13 +207,14 @@ protected:
   // Count of associated DataInterface objects.
   size_t data_count;
 
-
+  // Buffer holding the receive packet being assembled / parsed.
+  ReceivePacketBuffer received_packet;
 
   bool header_transmitted;
 
   // Sequence number of the next packet to be transmitted.
   uint8_t packet_tx_sequence;
-  uint8_t packet_rx_sequence;
+  uint8_t packet_rx_sequence; // TODO use this somewhere
 };
 
 // A telemetry packet with a length known before data is written to it.
@@ -268,8 +301,10 @@ public:
 
   virtual size_t get_payload_length() { return sizeof(value); }
   virtual void write_payload(TransmitPacketInterface& packet) { serialize_data(value, packet); }
+  virtual void set_from_packet(ReceivePacketBuffer& packet) { value = deserialize_data(packet); }
   
-  virtual void serialize_data(T data, TransmitPacketInterface& packet);
+  void serialize_data(T data, TransmitPacketInterface& packet);
+  T deserialize_data(ReceivePacketBuffer& packet);
 
 protected:
   Telemetry& telemetry_container;
@@ -341,8 +376,11 @@ public:
   virtual size_t get_payload_length() { return sizeof(value); }
   virtual void write_payload(TransmitPacketInterface& packet) {
     for (size_t i=0; i<array_count; i++) { serialize_data(this->value[i], packet); } }
+  virtual void set_from_packet(ReceivePacketBuffer& packet) {
+    for (size_t i=0; i<array_count; i++) { value[i] = deserialize_data(packet); } }
 
   virtual void serialize_data(T data, TransmitPacketInterface& packet) = 0;
+  virtual T deserialize_data(ReceivePacketBuffer& packet) = 0;
   
 protected:
   Telemetry& telemetry_container;
@@ -382,6 +420,7 @@ class NumericArray : public NumericArrayBase<T, array_count> {
       const char* units, T elem_init_value);
   virtual uint8_t get_subtype();
   virtual void write_payload(TransmitPacketInterface& packet);
+  virtual T deserialize_data(ReceivePacketBuffer& packet);
 };
 
 template <uint32_t array_count> 
@@ -396,6 +435,8 @@ public:
   virtual uint8_t get_subtype() {return NUMERIC_SUBTYPE_UINT; }
   virtual void serialize_data(uint8_t data, TransmitPacketInterface& packet) {
     packet.write_uint8(data); }
+  virtual uint8_t deserialize_data(ReceivePacketBuffer& packet) {
+    return packet.read_uint8(); }
 };
 
 template <uint32_t array_count> 
@@ -410,6 +451,8 @@ public:
   virtual uint8_t get_subtype() {return NUMERIC_SUBTYPE_UINT; }
   virtual void serialize_data(uint16_t data, TransmitPacketInterface& packet) {
     packet.write_uint16(data); }
+  virtual uint16_t deserialize_data(ReceivePacketBuffer& packet) {
+    return packet.read_uint16(); }
 };
 
 template <uint32_t array_count> 
@@ -424,6 +467,8 @@ public:
   virtual uint8_t get_subtype() {return NUMERIC_SUBTYPE_UINT; }
   virtual void serialize_data(uint32_t data, TransmitPacketInterface& packet) {
     packet.write_uint32(data); }
+  virtual uint32_t deserialize_data(ReceivePacketBuffer& packet) {
+    return packet.read_uint32(); }
 };
 
 template <uint32_t array_count> 
@@ -438,6 +483,8 @@ public:
   virtual uint8_t get_subtype() {return NUMERIC_SUBTYPE_FLOAT; }
   virtual void serialize_data(float data, TransmitPacketInterface& packet) {
     packet.write_float(data); }
+  virtual float deserialize_data(ReceivePacketBuffer& packet) {
+    return packet.read_float(); }
 };
 
 }

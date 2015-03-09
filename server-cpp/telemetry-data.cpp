@@ -42,6 +42,10 @@ template<>
 void NumericData<uint8_t>::serialize_data(uint8_t value, TransmitPacketInterface& packet) {
   packet.write_uint8(value);
 }
+template<>
+uint8_t NumericData<uint8_t>::deserialize_data(ReceivePacketBuffer& packet) {
+  return packet.read_uint8();
+}
 
 template<>
 uint8_t NumericData<uint16_t>::get_subtype() {
@@ -50,6 +54,10 @@ uint8_t NumericData<uint16_t>::get_subtype() {
 template<>
 void NumericData<uint16_t>::serialize_data(uint16_t value, TransmitPacketInterface& packet) {
   packet.write_uint16(value);
+}
+template<>
+uint16_t NumericData<uint16_t>::deserialize_data(ReceivePacketBuffer& packet) {
+  return packet.read_uint16();
 }
 
 template<>
@@ -60,6 +68,10 @@ template<>
 void NumericData<uint32_t>::serialize_data(uint32_t value, TransmitPacketInterface& packet) {
   packet.write_uint32(value);
 }
+template<>
+uint32_t NumericData<uint32_t>::deserialize_data(ReceivePacketBuffer& packet) {
+  return packet.read_uint32();
+}
 
 // TODO: move into HAL
 template<>
@@ -69,6 +81,10 @@ uint8_t NumericData<float>::get_subtype() {
 template<>
 void NumericData<float>::serialize_data(float value, TransmitPacketInterface& packet) {
   packet.write_float(value);
+}
+template<>
+float NumericData<float>::deserialize_data(ReceivePacketBuffer& packet) {
+  return packet.read_float();
 }
 
 }
