@@ -136,7 +136,7 @@ class WaterfallPlot(BasePlot):
         
       indep_cutoff = indep_val - self.indep_span
       
-      while self.x_mesh[0][0] < indep_cutoff or self.x_mesh[0][0] < indep_val:
+      while self.x_mesh[0][0] < indep_cutoff or self.x_mesh[0][0] > indep_val:
         self.x_mesh = np.delete(self.x_mesh, (0), axis=0)
         self.y_mesh = np.delete(self.y_mesh, (0), axis=0)
         self.data_array = np.delete(self.data_array, (0), axis=0)
