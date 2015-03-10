@@ -120,7 +120,7 @@ void Telemetry::process_received_data() {
   }
   decoder_last_receive_ms = current_time;
 
-
+  decoder_last_received = false;
   while (hal.rx_available()) {
 	decoder_last_received = true;
 
