@@ -30,6 +30,10 @@ void MbedHal::do_error(const char* msg) {
   serial.printf("%s\r\n", msg);
 }
 
+uint32_t MbedHal::get_time_ms() {
+  return timer.read_ms();
+}
+
 }
 
 #endif // ifdef MBED

@@ -51,6 +51,8 @@ const uint8_t NUMERIC_SUBTYPE_UINT = 0x01;
 const uint8_t NUMERIC_SUBTYPE_SINT = 0x02;
 const uint8_t NUMERIC_SUBTYPE_FLOAT = 0x03;
 
+const uint32_t DECODER_TIMEOUT_MS = 100;
+
 // Hardware abstraction layer for the telemetry server.
 class HalInterface {
 public:
@@ -67,6 +69,9 @@ public:
 
   // Called on a telemetry error.
   virtual void do_error(const char* message) = 0;
+
+  // Return the current time in milliseconds. May overflow at any time.
+  virtual uint32_t get_time_ms() = 0;
 };
 
 // Abstract base class for building a packet to be transmitted.
@@ -166,6 +171,8 @@ public:
     decoder_state(SOF),
     decoder_pos(0),
     packet_length(0),
+	decoder_last_received(false),
+	decoder_last_receive_ms(0),
     header_transmitted(false),
     packet_tx_sequence(0),
     packet_rx_sequence(0) {};
@@ -230,6 +237,8 @@ protected:
 
   size_t decoder_pos;
   size_t packet_length;
+  bool decoder_last_received;
+  uint32_t decoder_last_receive_ms;
 
   bool header_transmitted;
 

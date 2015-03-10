@@ -10,7 +10,9 @@ namespace telemetry {
 class MbedHal : public HalInterface {
 public:
   MbedHal(MODSERIAL& serial) :
-    serial(serial) {}
+    serial(serial) {
+	  timer.start();
+  }
 
   virtual void transmit_byte(uint8_t data);
   virtual size_t rx_available();
@@ -18,8 +20,11 @@ public:
 
   virtual void do_error(const char* message);
 
+  virtual uint32_t get_time_ms();
+
 protected:
   MODSERIAL& serial;
+  Timer timer;
 };
 
 }

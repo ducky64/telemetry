@@ -105,7 +105,25 @@ void Telemetry::transmit_data() {
 }
 
 void Telemetry::process_received_data() {
+  uint32_t current_time = hal.get_time_ms();
+
+  if (decoder_last_receive_ms <= current_time) {
+	if (!decoder_last_received && decoder_state != SOF && decoder_pos != 0
+		&& (decoder_last_receive_ms - current_time > DECODER_TIMEOUT_MS)) {
+	  decoder_pos = 0;
+	  packet_length = 0;
+	  decoder_state = SOF;
+	  hal.do_error("RX timeout");
+	}
+  } else {
+	// timer overflowed, do nothing
+  }
+  decoder_last_receive_ms = current_time;
+
+
   while (hal.rx_available()) {
+	decoder_last_received = true;
+
     uint8_t rx_byte = hal.receive_byte();
 
     if (decoder_state == SOF) {
