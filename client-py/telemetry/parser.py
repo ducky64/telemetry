@@ -1,6 +1,7 @@
 from collections import deque
 from numbers import Number
 import struct
+import time
 
 # TODO: MASSIVE REFACTORING EVERYWHERE
 
@@ -392,6 +393,7 @@ class TelemetrySerial(object):
   from the rest of the stream.
   """
   DecoderState = enum('SOF', 'LENGTH', 'DATA', 'DATA_DESTUFF', 'DATA_DESTUFF_END')
+  PACKET_TIMEOUT_THRESHOLD = 0.1  # seconds
   
   def __init__(self, serial):
     self.serial = serial
@@ -407,9 +409,26 @@ class TelemetrySerial(object):
     self.packet_buffer = deque()
     
     self.data_buffer = deque()
+    
+    # decoder packet timeout variables
+    self.last_loop_received = False
+    self.last_receive_time = time.time()
 
   def process_rx(self):
+    if ((not self.last_loop_received)
+        and (time.time() - self.last_receive_time > self.PACKET_TIMEOUT_THRESHOLD)
+        and (self.decoder_state != self.DecoderState.SOF and self.decoder_pos > 0)):
+      self.decoder_state = self.DecoderState.SOF
+      self.decoder_pos = 0
+      self.packet_buffer = deque()
+      print("Packet timed out; dropping")
+      
+    self.last_loop_received = False
+    
     while self.serial.inWaiting():
+      self.last_loop_received = True
+      self.last_receive_time = time.time()
+
       rx_byte = ord(self.serial.read())
       if self.decoder_state == self.DecoderState.SOF:
         self.packet_buffer.append(rx_byte)
