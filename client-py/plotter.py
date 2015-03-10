@@ -175,7 +175,7 @@ def subplots_from_header(packet, figure, indep_def, indep_span=10000):
   assert isinstance(packet, HeaderPacket)
   
   if indep_def is None:
-    print("Unable to find independent variable '%s'" % indep_def.internal_name)
+    print("No independent variable")
     return [], []
 
   data_defs = []
@@ -299,7 +299,7 @@ if __name__ == "__main__":
           csv_logger[0] = CsvLogger(filename, packet)
         
       elif isinstance(packet, DataPacket):
-        if indep_def is not None:
+        if indep_def[0] is not None:
           indep_value = packet.get_data_by_id(indep_def[0].data_id)
           if indep_value is not None:
             latest_indep[0] = indep_value
