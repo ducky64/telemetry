@@ -3,10 +3,15 @@ import ast
 from collections import deque
 import csv
 import datetime 
+import sys
 
-from tkinter import *
-import tkinter.simpledialog as simpledialog
-
+if sys.version_info.major < 3:
+  from Tkinter import *
+  import SimpleDialog as simpledialog
+else:
+  from tkinter import *
+  import tkinter.simpledialog as simpledialog
+  
 from matplotlib import pyplot as plt
 import matplotlib.animation as animation
 import numpy as np
@@ -215,7 +220,10 @@ class CsvLogger(object):
       units_dict[data_def.data_id] = data_def.units
     csv_header.append("data")  # for non-telemetry data
                          
-    self.csv_file = open(name, 'w', newline='')
+    if sys.version_info.major < 3:
+      self.csv_file = open(name, 'wb')
+    else:
+      self.csv_file = open(name, 'w', newline='')
     self.csv_writer = csv.DictWriter(self.csv_file, fieldnames=csv_header)
 
     self.csv_writer.writerow(internal_name_dict)
