@@ -7,7 +7,7 @@ import sys
 
 if sys.version_info.major < 3:
   from Tkinter import *
-  import SimpleDialog as simpledialog
+  import tkSimpleDialog as simpledialog
 else:
   from tkinter import *
   import tkinter.simpledialog as simpledialog
