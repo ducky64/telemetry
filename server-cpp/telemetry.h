@@ -405,15 +405,10 @@ public:
   virtual uint8_t get_subtype() = 0;
 
   virtual size_t get_payload_length() { return sizeof(value); }
-  virtual void write_payload(TransmitPacketInterface& packet) {
-    for (size_t i=0; i<array_count; i++) { serialize_data(this->value[i], packet); } }
-  virtual void set_from_packet(ReceivePacketBuffer& packet) {
-    for (size_t i=0; i<array_count; i++) { value[i] = deserialize_data(packet); }
-    telemetry_container.mark_data_updated(data_id); }
-
+  
   virtual void serialize_data(T data, TransmitPacketInterface& packet) = 0;
   virtual T deserialize_data(ReceivePacketBuffer& packet) = 0;
-  
+    
 protected:
   Telemetry& telemetry_container;
   size_t data_id;
@@ -452,7 +447,9 @@ class NumericArray : public NumericArrayBase<T, array_count> {
       const char* units, T elem_init_value);
   virtual uint8_t get_subtype();
   virtual void write_payload(TransmitPacketInterface& packet);
-  virtual T deserialize_data(ReceivePacketBuffer& packet);
+  virtual void set_from_packet(ReceivePacketBuffer& packet);
+  virtual void serialize_data(uint8_t data, TransmitPacketInterface& packet);
+  virtual uint8_t deserialize_data(ReceivePacketBuffer& packet);
 };
 
 template <uint32_t array_count> 
@@ -465,6 +462,13 @@ public:
           telemetry_container, internal_name, display_name,
           units, elem_init_value) {};
   virtual uint8_t get_subtype() {return NUMERIC_SUBTYPE_UINT; }
+  
+  virtual void write_payload(TransmitPacketInterface& packet) {
+    for (size_t i=0; i<array_count; i++) { packet.write_uint8(this->value[i]); } }
+  virtual void set_from_packet(ReceivePacketBuffer& packet) {
+    for (size_t i=0; i<array_count; i++) { this->value[i] = packet.read_uint8(); }
+    this->telemetry_container.mark_data_updated(this->data_id); }
+  
   virtual void serialize_data(uint8_t data, TransmitPacketInterface& packet) {
     packet.write_uint8(data); }
   virtual uint8_t deserialize_data(ReceivePacketBuffer& packet) {
@@ -481,6 +485,12 @@ public:
           telemetry_container, internal_name, display_name,
           units, elem_init_value) {};
   virtual uint8_t get_subtype() {return NUMERIC_SUBTYPE_UINT; }
+  virtual void write_payload(TransmitPacketInterface& packet) {
+    for (size_t i=0; i<array_count; i++) { packet.write_uint16(this->value[i]); } }
+  virtual void set_from_packet(ReceivePacketBuffer& packet) {
+    for (size_t i=0; i<array_count; i++) { this->value[i] = packet.read_uint16(); }
+    this->telemetry_container.mark_data_updated(this->data_id); }
+  
   virtual void serialize_data(uint16_t data, TransmitPacketInterface& packet) {
     packet.write_uint16(data); }
   virtual uint16_t deserialize_data(ReceivePacketBuffer& packet) {
@@ -497,6 +507,12 @@ public:
           telemetry_container, internal_name, display_name,
           units, elem_init_value) {};
   virtual uint8_t get_subtype() {return NUMERIC_SUBTYPE_UINT; }
+  virtual void write_payload(TransmitPacketInterface& packet) {
+    for (size_t i=0; i<array_count; i++) { packet.write_uint32(this->value[i]); } }
+  virtual void set_from_packet(ReceivePacketBuffer& packet) {
+    for (size_t i=0; i<array_count; i++) { this->value[i] = packet.read_uint32(); }
+    this->telemetry_container.mark_data_updated(this->data_id); }
+  
   virtual void serialize_data(uint32_t data, TransmitPacketInterface& packet) {
     packet.write_uint32(data); }
   virtual uint32_t deserialize_data(ReceivePacketBuffer& packet) {
@@ -513,6 +529,12 @@ public:
           telemetry_container, internal_name, display_name,
           units, elem_init_value) {};
   virtual uint8_t get_subtype() {return NUMERIC_SUBTYPE_FLOAT; }
+  virtual void write_payload(TransmitPacketInterface& packet) {
+    for (size_t i=0; i<array_count; i++) { packet.write_float(this->value[i]); } }
+  virtual void set_from_packet(ReceivePacketBuffer& packet) {
+    for (size_t i=0; i<array_count; i++) { this->value[i] = packet.read_float(); }
+    this->telemetry_container.mark_data_updated(this->data_id); }
+  
   virtual void serialize_data(float data, TransmitPacketInterface& packet) {
     packet.write_float(data); }
   virtual float deserialize_data(ReceivePacketBuffer& packet) {
