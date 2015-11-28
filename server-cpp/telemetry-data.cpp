@@ -6,7 +6,7 @@
  *
  * Implementation for Telemetry Data classes.
  */
-#include <telemetry.h>
+#include "telemetry.h"
 #include <string.h>
 
 namespace telemetry {
