@@ -7,7 +7,7 @@
  * Telemetry HAL for Serial on mBed.
  */
 
-#ifdef __ARMCC_VERSION
+#if defined(__ARMCC_VERSION) || defined(TOOLCHAIN_GCC_ARM)
 
 #include "telemetry-mbed.h"
 

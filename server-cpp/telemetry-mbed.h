@@ -1,5 +1,5 @@
 // Make this less hacky and detect properly
-#ifdef __ARMCC_VERSION
+#if defined(__ARMCC_VERSION) || defined(TOOLCHAIN_GCC_ARM)
 
 #include "telemetry.h"
 #include "mbed.h"
