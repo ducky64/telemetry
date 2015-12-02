@@ -27,7 +27,8 @@ uint8_t MbedHal::receive_byte() {
 }
 
 void MbedHal::do_error(const char* msg) {
-  serial.printf("%s\r\n", msg);
+  serial.puts(msg);
+  serial.puts("\r\n");
 }
 
 uint32_t MbedHal::get_time_ms() {
