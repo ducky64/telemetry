@@ -43,14 +43,14 @@ def deserialize_uint16(byte_stream):
 
 def deserialize_uint32(byte_stream):
   # TODO: handle overflow
-  return (byte_stream.popleft() << 24 
+  return (byte_stream.popleft() << 24
          | byte_stream.popleft() << 16
          | byte_stream.popleft() << 8
          | byte_stream.popleft())
-  
+
 def deserialize_float(byte_stream):
   # TODO: handle overflow
-  packed = bytearray([byte_stream.popleft(), 
+  packed = bytearray([byte_stream.popleft(),
                       byte_stream.popleft(),
                       byte_stream.popleft(),
                       byte_stream.popleft()])
@@ -107,11 +107,11 @@ def serialize_uint8(value):
 
 def serialize_uint16(value):
   if (not isinstance(value, int)) or (value < 0 or value > 65535):
-    raise ValueError("Invalid uint16: %s" % value) 
+    raise ValueError("Invalid uint16: %s" % value)
   return struct.pack('!H', value)
 
 def serialize_uint32(value):
-  if (not isinstance(value, int)) or (value < 0 or value > 2 ** 32 - 1): 
+  if (not isinstance(value, int)) or (value < 0 or value > 2 ** 32 - 1):
     raise ValueError("Invalid uint32: %s" % value)
   return struct.pack('!L', value)
 
@@ -160,7 +160,7 @@ class TelemetryData(object):
       record_name, _ = record_desc
       out += " %s=%s" % (record_name, repr(getattr(self, record_name)))
     return out
-  
+
   def get_kvrs_dict(self):
     """Returns a dict of record id => (record name, deserialization function) known by this class.
     The record name is used as an instance variable name if the KVR is read in.
@@ -172,7 +172,7 @@ class TelemetryData(object):
       # TODO: make more robust by allowing defaults / partial parses
       # add record 0x08 = freeze
     }
-  
+
   @staticmethod
   def decode_header(data_id, byte_stream):
     """Decodes a data header from the telemetry stream, automatically detecting and returning
@@ -183,19 +183,19 @@ class TelemetryData(object):
       raise NoOpcodeError("No datatype %02x" % opcode)
     data_cls = datatype_registry[opcode]
     return data_cls(data_id, byte_stream)
-  
+
   def __init__(self, data_id, byte_stream):
     self.data_id = data_id
     self.data_type = deserialize_uint8(byte_stream)
-    
+
     self.internal_name = "%02x" % data_id
     self.display_name = self.internal_name
     self.units = ""
-    
+
     self.latest_value = None
-    
+
     self.decode_kvrs(byte_stream)
-    
+
   def decode_kvrs(self, byte_stream):
     """Destructively reads in a sequence of KVRs from the input stream, writing
     the known ones as instance variables and throwing exceptions on unknowns.
@@ -209,7 +209,7 @@ class TelemetryData(object):
         raise NoRecordIdError("No RecordId %02x in %s" % (record_id, self.__class__.__name__))
       record_name, record_deserializer = kvrs_dict[record_id]
       setattr(self, record_name, record_deserializer(byte_stream))
-      
+
     # check that all KVRs have been read in / defaulted
     for record_id, record_desc in kvrs_dict.items():
       record_name, _ = record_desc
@@ -220,59 +220,59 @@ class TelemetryData(object):
     """Destructively reads in the data of this type from the input stream.
     """
     raise NotImplementedError
-  
+
   def serialize_data(self, value):
     """Returns the serialized version (as bytes) of this data given a value.
     Can raise a ValueError if there is a conversion issue.
     """
     raise NotImplementedError
-  
+
   def get_latest_value(self):
     return self.latest_value
-  
+
   def set_latest_value(self, value):
     self.latest_value = value
-  
-  
-  
+
+
+
 class UnknownNumericSubtype(Exception):
   pass
-  
+
 class NumericData(TelemetryData):
   def get_kvrs_dict(self):
     newdict = super(NumericData, self).get_kvrs_dict().copy()
-    newdict.update({ 
+    newdict.update({
       0x40: ('subtype', deserialize_uint8),
       0x41: ('length', deserialize_uint8),
       0x42: ('limits', deserialize_numeric_from_def(self, count=2)),
     })
     return newdict
-    
+
   def deserialize_data(self, byte_stream):
     return deserialize_numeric(byte_stream, self.subtype, self.length)
-  
+
   def serialize_data(self, value):
     return serialize_numeric(value, self.subtype, self.length)
-  
+
 datatype_registry[DATATYPE_NUMERIC] = NumericData
 
 class NumericArray(TelemetryData):
   def get_kvrs_dict(self):
     newdict = super(NumericArray, self).get_kvrs_dict().copy()
-    newdict.update({ 
+    newdict.update({
       0x40: ('subtype', deserialize_uint8),
       0x41: ('length', deserialize_uint8),
       0x42: ('limits', deserialize_numeric_from_def(self, count=2)),
       0x50: ('count', deserialize_uint32),
     })
-    return newdict 
-  
+    return newdict
+
   def deserialize_data(self, byte_stream):
     out = []
     for _ in range(self.count):
       out.append(deserialize_numeric(byte_stream, self.subtype, self.length))
     return out
-  
+
   def serialize_data(self, value):
     if len(value) != self.count:
       raise ValueError("Length mismatch: got %i, expected %i"
@@ -281,7 +281,7 @@ class NumericArray(TelemetryData):
     for elt in value:
       out += serialize_numeric(elt, self.subtype, self.length)
     return out
-  
+
 datatype_registry[DATATYPE_NUMERIC_ARRAY] = NumericArray
 
 class PacketSizeError(TelemetryDeserializationError):
@@ -304,21 +304,21 @@ class TelemetryPacket(object):
       raise NoOpcodeError("No opcode %02x" % opcode)
     packet_cls = opcodes_registry[opcode]
     return packet_cls(byte_stream, context)
-  
+
   def __init__(self, byte_stream, context):
     self.opcode = deserialize_uint8(byte_stream)
     self.sequence = deserialize_uint8(byte_stream)
     self.decode_payload(byte_stream, context)
     if len(byte_stream) > 0:
       raise PacketSizeError("%i unused bytes in packet" % len(byte_stream))
-      
+
   def decode_payload(self, byte_stream, context):
     raise NotImplementedError
 
 class HeaderPacket(TelemetryPacket):
   def __repr__(self):
     return "[%i]Header: %s" % (self.sequence, repr(self.data))
-    
+
   def decode_payload(self, byte_stream, context):
     self.data = {}
     while True:
@@ -328,25 +328,25 @@ class HeaderPacket(TelemetryPacket):
       elif data_id in self.data:
         raise DuplicateDataIdError("Duplicate DataId %02x" % data_id)
       self.data[data_id] = TelemetryData.decode_header(data_id, byte_stream)
-      
+
   def get_data_defs(self):
     """Returns the data defs defined in this header as a dict of data ID to
     TelemetryData objects.
     """
     return self.data
-  
+
   def get_data_names(self):
     data_names = []
     for data_def in self.data.values():
       data_names.append(data_def.internal_name)
     return data_names
-      
+
 opcodes_registry[OPCODE_HEADER] = HeaderPacket
 
 class DataPacket(TelemetryPacket):
   def __repr__(self):
     return "[%i]Data: %s" % (self.sequence, repr(self.data))
-    
+
   def decode_payload(self, byte_stream, context):
     self.data = {}
     while True:
@@ -358,7 +358,7 @@ class DataPacket(TelemetryPacket):
         raise UndefinedDataIdError("Received DataId %02x not defined in header" % data_id)
       data_value = data_def.deserialize_data(byte_stream)
       data_def.set_latest_value(data_value)
-      self.data[data_def.data_id] = data_value 
+      self.data[data_def.data_id] = data_value
 
   def get_data_dict(self):
     return self.data
@@ -369,7 +369,7 @@ class DataPacket(TelemetryPacket):
     else:
       return None
 
-opcodes_registry[OPCODE_DATA] = DataPacket  
+opcodes_registry[OPCODE_DATA] = DataPacket
 
 
 
@@ -379,7 +379,7 @@ class TelemetryContext(object):
   """
   def __init__(self, data_defs):
     self.data_defs = data_defs
-    
+
   def get_data_def(self, data_id):
     if data_id in self.data_defs:
       return self.data_defs[data_id]
@@ -394,22 +394,22 @@ class TelemetrySerial(object):
   """
   DecoderState = enum('SOF', 'LENGTH', 'DATA', 'DATA_DESTUFF', 'DATA_DESTUFF_END')
   PACKET_TIMEOUT_THRESHOLD = 0.1  # seconds
-  
+
   def __init__(self, serial):
     self.serial = serial
-    
+
     self.rx_packets = deque()  # queued decoded packets
-    
+
     self.context = TelemetryContext([])
-    
+
     # decoder state machine variables
     self.decoder_state = self.DecoderState.SOF;  # expected next byte
     self.decoder_pos = 0; # position within decoder_State
     self.packet_length = 0;  # expected packet length
     self.packet_buffer = deque()
-    
+
     self.data_buffer = deque()
-    
+
     # decoder packet timeout variables
     self.last_loop_received = False
     self.last_receive_time = time.time()
@@ -422,9 +422,9 @@ class TelemetrySerial(object):
       self.decoder_pos = 0
       self.packet_buffer = deque()
       print("Packet timed out; dropping")
-      
+
     self.last_loop_received = False
-    
+
     while self.serial.inWaiting():
       self.last_loop_received = True
       self.last_receive_time = time.time()
@@ -432,7 +432,7 @@ class TelemetrySerial(object):
       rx_byte = ord(self.serial.read())
       if self.decoder_state == self.DecoderState.SOF:
         self.packet_buffer.append(rx_byte)
-        
+
         if rx_byte == SOF_BYTE[self.decoder_pos]:
           self.decoder_pos += 1
           if self.decoder_pos == len(SOF_BYTE):
@@ -456,16 +456,17 @@ class TelemetrySerial(object):
         if self.decoder_pos == self.packet_length:
           try:
             decoded = TelemetryPacket.decode(self.packet_buffer, self.context)
-          
+
             if isinstance(decoded, HeaderPacket):
               self.context = TelemetryContext(decoded.get_data_defs())
-            
+
             self.rx_packets.append(decoded)
           except TelemetryDeserializationError as e:
             print("Deserialization error: %s" % repr(e)) # TODO prettier cleaner
-          
+          except IndexError as e:
+            print("Index error: %s" % repr(e))
           self.packet_buffer = deque()
-      
+
           self.decoder_pos = 0
           if rx_byte == SOF_BYTE[0]:
             self.decoder_state = self.DecoderState.DATA_DESTUFF_END
@@ -487,29 +488,29 @@ class TelemetrySerial(object):
     packet += data_def.serialize_data(value)
     packet += serialize_uint8(DATAID_TERMINATOR)
     self.transmit_packet(packet)
-  
+
   def transmit_packet(self, packet):
     header = bytearray()
     for elt in SOF_BYTE:
       header += serialize_uint8(elt)
     header += serialize_uint16(len(packet))
-    
+
     modified_packet = bytearray()
     for packet_byte in packet:
       modified_packet.append(packet_byte)
       if packet_byte == SOF_BYTE[0]:
         modified_packet.append(0x00)
-    
+
     self.serial.write(header + modified_packet)
 
     # TODO: add CRC support
-      
+
   def next_rx_packet(self):
     if self.rx_packets:
       return self.rx_packets.popleft()
     else:
       return None
-    
+
   def next_rx_byte(self):
     if self.data_buffer:
       return self.data_buffer.popleft()
