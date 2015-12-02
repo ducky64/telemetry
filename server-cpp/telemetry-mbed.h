@@ -9,9 +9,17 @@ namespace telemetry {
 
 class MbedHal : public HalInterface {
 public:
-  MbedHal(MODSERIAL& serial) :
-    serial(serial) {
+  MbedHal(MODSERIAL& serial_in) :
+    serial(&serial_in) {
 	  timer.start();
+  }
+  MbedHal() :
+      serial(NULL) {
+  	  timer.start();
+  }
+
+  void set_serial(MODSERIAL& serial_new) {
+	serial = &serial_new;
   }
 
   virtual void transmit_byte(uint8_t data);
@@ -23,7 +31,7 @@ public:
   virtual uint32_t get_time_ms();
 
 protected:
-  MODSERIAL& serial;
+  MODSERIAL* serial;
   Timer timer;
 };
 
