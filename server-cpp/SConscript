@@ -1,0 +1,16 @@
+# SConscript file which can be included from a top-level SConsctuct file.
+# Provides a static library called telemetry and provides include paths.
+# env must be exported and include the proper defines and top-level absolute
+# include paths for platform headers (like '#/mbed/api') and platform-specific
+# compiler flags (like env['CXX'] = 'arm-none-eabi-g++').
+#
+# Usage:
+# SConscript('telemetry/server-cpp/SConscript', exports='env')
+# env.Program( ..., LIBS=['telemetry], LIBPATH='.')
+# Read up on SCons hierarchical builds for more information.
+
+Import('env')
+
+env.Append(CPPPATH = ['.'])
+
+env.StaticLibrary('telemetry', Glob('*.cpp'))
