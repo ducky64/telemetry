@@ -7,18 +7,16 @@
 #
 # Inputs:
 # - env: properly configured C++ build environment for your platform (like
-#   env['CXX'] = 'arm-none-eabi-g++').
-# - telemetry_paths: additional paths (absolute directory) that telemetry needs
-#   (like platform header files).
+#   env['CXX'] = 'arm-none-eabi-g++') with platform headers in the path.
 #
 # Returns:
 # - a static library to be included in your program
 
-Import('env', 'telemetry_paths')
+Import('env')
 
 env = env.Clone()
 
-env.Append(CPPPATH = ['.', telemetry_paths])
+env.Append(CPPPATH = ['.'])
 
 lib = env.StaticLibrary('telemetry', Glob('*.cpp'))
 
