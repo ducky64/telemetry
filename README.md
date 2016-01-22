@@ -10,6 +10,10 @@ The client-side (plotter / visualizer) code is written in Python. A basic teleme
 
 The [protocol spec](../master/docs/protocol.tex) defines a binary wire format along with packet structures for data and headers, allowing for other implementations of either side that interoperate.
 
+## Changelog
+### From Version 0.0 (Spring 2015)
+- Platform automatically detected by just including `telemetry.h`, no need to manually specify `telemetry-arduino.h` or `telemetry-mbed.h`.
+
 ## Quickstart
 ### Plotter setup
 Telemetry depends on these:
