@@ -7,9 +7,9 @@
  * Telemetry HAL for Serial on Arduino.
  */
 
-#ifdef ARDUINO
+#include "telemetry.h"
 
-#include "telemetry-arduino.h"
+#ifdef TELEMETRY_HAL_ARDUINO
 
 namespace telemetry {
 
@@ -33,4 +33,4 @@ void ArduinoHalInterface::do_error(const char* msg) {
 
 }
 
-#endif // ifdef ARDUINO
+#endif

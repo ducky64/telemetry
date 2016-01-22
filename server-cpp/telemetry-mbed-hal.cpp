@@ -7,9 +7,9 @@
  * Telemetry HAL for Serial on mBed.
  */
 
-#if defined(__ARMCC_VERSION) || defined(TOOLCHAIN_GCC_ARM)
+#include "telemetry.h"
 
-#include "telemetry-mbed.h"
+#ifdef TELEMETRY_HAL_MBED
 
 namespace telemetry {
 
@@ -50,4 +50,4 @@ uint32_t MbedHal::get_time_ms() {
 
 }
 
-#endif // ifdef MBED
+#endif

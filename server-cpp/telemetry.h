@@ -4,6 +4,24 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef ARDUINO
+  #ifdef TELEMETRY_HAL
+    #error "Multiple telemetry HALs defined"
+  #endif
+  #include "telemetry-arduino-hal.h"
+#endif
+
+#if defined(__ARMCC_VERSION) || defined(TOOLCHAIN_GCC_ARM)
+  #ifdef TELEMETRY_HAL
+    #error "Multiple telemetry HALs defined"
+  #endif
+  #include "telemetry-mbed-hal.h"
+#endif
+
+#ifndef TELEMETRY_HAL
+  #error "No telemetry HAL defined"
+#endif
+
 namespace telemetry {
 
 #ifndef TELEMETRY_DATA_LIMIT
@@ -53,27 +71,6 @@ const uint8_t NUMERIC_SUBTYPE_FLOAT = 0x03;
 
 const uint32_t DECODER_TIMEOUT_MS = 100;
 
-// Hardware abstraction layer for the telemetry server.
-class HalInterface {
-public:
-  virtual ~HalInterface() {}
-
-  // Write a byte to the transmit buffer.
-  virtual void transmit_byte(uint8_t data) = 0;
-  // Returns the number of bytes available in the receive buffer.
-  virtual size_t rx_available() = 0;
-  // Returns the next byte in the receive stream. rx_available must return > 0.
-  virtual uint8_t receive_byte() = 0;
-
-  // TODO: more efficient block transmit operations?
-
-  // Called on a telemetry error.
-  virtual void do_error(const char* message) = 0;
-
-  // Return the current time in milliseconds. May overflow at any time.
-  virtual uint32_t get_time_ms() = 0;
-};
-
 // Abstract base class for building a packet to be transmitted.
 // Implementation is unconstrained - writes may either be buffered or passed
 // directly to the hardware transmit buffers.
@@ -83,7 +80,7 @@ public:
 
   // Writes a 8-bit unsigned integer to the packet stream.
   virtual void write_byte(uint8_t data) = 0;
-    
+
   // Writes a 8-bit unsigned integer to the packet stream.
   virtual void write_uint8(uint8_t data) = 0;
   // Writes a 16-bit unsigned integer to the packet stream.
@@ -276,10 +273,10 @@ protected:
   bool valid;
 };
 
-template <typename T> 
+template <typename T>
 class Numeric : public Data {
 public:
-  Numeric(Telemetry& telemetry_container, 
+  Numeric(Telemetry& telemetry_container,
       const char* internal_name, const char* display_name,
       const char* units, T init_value):
       Data(internal_name, display_name, units),
@@ -300,13 +297,13 @@ public:
   operator T() {
     return value;
   }
-  
+
   Numeric<T>& set_limits(T min, T max) {
     min_val = min;
     max_val = max;
     return *this;
   }
-  
+
   virtual uint8_t get_data_type() { return DATATYPE_NUMERIC; }
 
   virtual size_t get_header_kvrs_length() {
@@ -334,7 +331,7 @@ public:
   virtual void set_from_packet(ReceivePacketBuffer& packet) {
     value = deserialize_data(packet);
     telemetry_container.mark_data_updated(data_id); }
-  
+
   void serialize_data(T data, TransmitPacketInterface& packet);
   T deserialize_data(ReceivePacketBuffer& packet);
 
@@ -350,11 +347,11 @@ template <typename T, uint32_t array_count>
 class NumericArrayAccessor;
 
 // TODO: fix this partial specialization inheritance nightmare
-template <typename T, uint32_t array_count> 
+template <typename T, uint32_t array_count>
 class NumericArrayBase : public Data {
   friend class NumericArrayAccessor<T, array_count>;
 public:
-  NumericArrayBase(Telemetry& telemetry_container, 
+  NumericArrayBase(Telemetry& telemetry_container,
       const char* internal_name, const char* display_name,
       const char* units, T elem_init_value):
       Data(internal_name, display_name, units),
@@ -378,7 +375,7 @@ public:
     max_val = max;
     return *this;
   }
-  
+
   virtual uint8_t get_data_type() { return DATATYPE_NUMERIC_ARRAY; }
 
   virtual size_t get_header_kvrs_length() {
@@ -413,7 +410,7 @@ public:
 
   virtual void serialize_data(T data, TransmitPacketInterface& packet) = 0;
   virtual T deserialize_data(ReceivePacketBuffer& packet) = 0;
-  
+
 protected:
   Telemetry& telemetry_container;
   size_t data_id;
@@ -445,9 +442,9 @@ protected:
   size_t index;
 };
 
-template <typename T, uint32_t array_count> 
+template <typename T, uint32_t array_count>
 class NumericArray : public NumericArrayBase<T, array_count> {
-  NumericArray(Telemetry& telemetry_container, 
+  NumericArray(Telemetry& telemetry_container,
       const char* internal_name, const char* display_name,
       const char* units, T elem_init_value);
   virtual uint8_t get_subtype();
@@ -455,10 +452,10 @@ class NumericArray : public NumericArrayBase<T, array_count> {
   virtual T deserialize_data(ReceivePacketBuffer& packet);
 };
 
-template <uint32_t array_count> 
+template <uint32_t array_count>
 class NumericArray<uint8_t, array_count> : public NumericArrayBase<uint8_t, array_count> {
 public:
-  NumericArray(Telemetry& telemetry_container, 
+  NumericArray(Telemetry& telemetry_container,
       const char* internal_name, const char* display_name,
       const char* units, uint8_t elem_init_value):
       NumericArrayBase<uint8_t, array_count>(
@@ -471,10 +468,10 @@ public:
     return packet.read_uint8(); }
 };
 
-template <uint32_t array_count> 
+template <uint32_t array_count>
 class NumericArray<uint16_t, array_count> : public NumericArrayBase<uint16_t, array_count> {
 public:
-  NumericArray(Telemetry& telemetry_container, 
+  NumericArray(Telemetry& telemetry_container,
       const char* internal_name, const char* display_name,
       const char* units, uint16_t elem_init_value):
       NumericArrayBase<uint16_t, array_count>(
@@ -487,10 +484,10 @@ public:
     return packet.read_uint16(); }
 };
 
-template <uint32_t array_count> 
+template <uint32_t array_count>
 class NumericArray<uint32_t, array_count> : public NumericArrayBase<uint32_t, array_count> {
 public:
-  NumericArray(Telemetry& telemetry_container, 
+  NumericArray(Telemetry& telemetry_container,
       const char* internal_name, const char* display_name,
       const char* units, uint32_t elem_init_value):
       NumericArrayBase<uint32_t, array_count>(
@@ -503,10 +500,10 @@ public:
     return packet.read_uint32(); }
 };
 
-template <uint32_t array_count> 
+template <uint32_t array_count>
 class NumericArray<float, array_count> : public NumericArrayBase<float, array_count> {
 public:
-  NumericArray(Telemetry& telemetry_container, 
+  NumericArray(Telemetry& telemetry_container,
       const char* internal_name, const char* display_name,
       const char* units, float elem_init_value):
       NumericArrayBase<float, array_count>(

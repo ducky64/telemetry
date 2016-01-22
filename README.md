@@ -45,14 +45,6 @@ Include the telemetry header in your code:
 #include "telemetry.h"
 ```
 
-and either the header for Arduino or mbed:
-```c++
-// Choose ONE.
-#include "telemetry-arduino.h"
-#include "telemetry-mbed.h"
-```
-*In future versions, telemetry.h will autodetect the platform and include the correct header.*
-
 Then, instantiate a telemetry HAL (hardware abstraction layer) for your platform. This adapts the platform-specific UART into a standard interface allowing telemetry to be used across multiple platforms.
 
 For Arduino, instantiate it with a Serial object:
