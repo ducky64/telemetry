@@ -174,17 +174,14 @@ public:
       const char* units, T init_value):
       Data(internal_name, display_name, units),
       telemetry_container(telemetry_container),
-      value(init_value), min_val(init_value), max_val(init_value),
-      frozen(false) {
+      value(init_value), min_val(init_value), max_val(init_value) {
     data_id = telemetry_container.add_data(*this);
   }
 
   T operator = (T b) {
-    if (!frozen) {
-      value = b;
-      telemetry_container.mark_data_updated(data_id);
-    }
-    return value;
+    value = b;
+    telemetry_container.mark_data_updated(data_id);
+    return b;
   }
 
   operator T() {
@@ -236,7 +233,6 @@ protected:
   size_t data_id;
   T value;
   T min_val, max_val;
-  bool frozen;
 };
 
 template <typename T, uint32_t array_count>
@@ -251,8 +247,7 @@ public:
       const char* units, T elem_init_value):
       Data(internal_name, display_name, units),
       telemetry_container(telemetry_container),
-      min_val(elem_init_value), max_val(elem_init_value),
-      frozen(false) {
+      min_val(elem_init_value), max_val(elem_init_value) {
     for (size_t i=0; i<array_count; i++) {
       value[i] = elem_init_value;
     }
@@ -260,8 +255,7 @@ public:
   }
 
   NumericArrayAccessor<T, array_count> operator[] (const int index) {
-    // TODO: add bounds checking here
-    // TODO: add "frozen" check
+    // TODO: add bounds checking here?
     return NumericArrayAccessor<T, array_count>(*this, index);
   }
 
@@ -311,7 +305,6 @@ protected:
   size_t data_id;
   T value[array_count];
   T min_val, max_val;
-  bool frozen;
 };
 
 template <typename T, uint32_t array_count>
@@ -321,11 +314,9 @@ public:
     container(container), index(index) { }
 
   T operator = (T b) {
-    if (!container.frozen) {
-      container.value[index] = b;
-      container.telemetry_container.mark_data_updated(container.data_id);
-    }
-    return container.value[index];
+    container.value[index] = b;
+    container.telemetry_container.mark_data_updated(container.data_id);
+    return b;
   }
 
   operator T() {
