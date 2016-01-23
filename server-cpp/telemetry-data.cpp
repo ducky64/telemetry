@@ -10,7 +10,7 @@
 #include <string.h>
 
 namespace telemetry {
-void packet_write_string(TransmitPacketInterface& packet, const char* str) {
+void packet_write_string(TransmitPacket& packet, const char* str) {
   // TODO: move into HAL for higher performance?
   while (*str != '\0') {
     packet.write_uint8(*str);
@@ -25,12 +25,12 @@ size_t Data::get_header_kvrs_length() {
       + 1 + strlen(units) + 1;
 }
 
-void Data::write_header_kvrs(TransmitPacketInterface& packet) {
-  packet.write_uint8(RECORDID_INTERNAL_NAME);
+void Data::write_header_kvrs(TransmitPacket& packet) {
+  packet.write_uint8(protocol::RECORDID_INTERNAL_NAME);
   packet_write_string(packet, internal_name);
-  packet.write_uint8(RECORDID_DISPLAY_NAME);
+  packet.write_uint8(protocol::RECORDID_DISPLAY_NAME);
   packet_write_string(packet, display_name);
-  packet.write_uint8(RECORDID_UNITS);
+  packet.write_uint8(protocol::RECORDID_UNITS);
   packet_write_string(packet, units);
 }
 

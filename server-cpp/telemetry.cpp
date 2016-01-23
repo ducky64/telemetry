@@ -46,15 +46,15 @@ void Telemetry::transmit_header() {
 
   FixedLengthTransmitPacket packet(hal, packet_legnth);
 
-  packet.write_uint8(OPCODE_HEADER);
+  packet.write_uint8(protocol::OPCODE_HEADER);
   packet.write_uint8(packet_tx_sequence);
   for (int data_idx = 0; data_idx < data_count; data_idx++) {
     packet.write_uint8(data_idx+1);
     packet.write_uint8(data[data_idx]->get_data_type());
     data[data_idx]->write_header_kvrs(packet);
-    packet.write_uint8(RECORDID_TERMINATOR);
+    packet.write_uint8(protocol::RECORDID_TERMINATOR);
   }
-  packet.write_uint8(DATAID_TERMINATOR);
+  packet.write_uint8(protocol::DATAID_TERMINATOR);
 
   packet.finish();
 
@@ -89,7 +89,7 @@ void Telemetry::transmit_data() {
 
   FixedLengthTransmitPacket packet(hal, packet_legnth);
 
-  packet.write_uint8(OPCODE_DATA);
+  packet.write_uint8(protocol::OPCODE_DATA);
   packet.write_uint8(packet_tx_sequence);
   for (int data_idx = 0; data_idx < data_count; data_idx++) {
     if (data_updated_local[data_idx]) {
@@ -97,7 +97,7 @@ void Telemetry::transmit_data() {
       data[data_idx]->write_payload(packet);
     }
   }
-  packet.write_uint8(DATAID_TERMINATOR);
+  packet.write_uint8(protocol::DATAID_TERMINATOR);
 
   packet.finish();
 
@@ -127,9 +127,9 @@ void Telemetry::process_received_data() {
     uint8_t rx_byte = hal.receive_byte();
 
     if (decoder_state == SOF) {
-      if (rx_byte == SOF_SEQ[decoder_pos]) {
+      if (rx_byte == protocol::SOF_SEQ[decoder_pos]) {
         decoder_pos++;
-        if (decoder_pos >= (sizeof(SOF_SEQ) / sizeof(SOF_SEQ[0]))) {
+        if (decoder_pos >= protocol::SOF_LENGTH) {
           decoder_pos = 0;
           packet_length = 0;
           decoder_state = LENGTH;
@@ -141,7 +141,7 @@ void Telemetry::process_received_data() {
     } else if (decoder_state == LENGTH) {
       packet_length = (packet_length << 8) | rx_byte;
       decoder_pos++;
-      if (decoder_pos >= LENGTH_SIZE) {
+      if (decoder_pos >= protocol::LENGTH_SIZE) {
         decoder_pos = 0;
         decoder_state = DATA;
       }
@@ -152,13 +152,13 @@ void Telemetry::process_received_data() {
         process_received_packet();
 
         decoder_pos = 0;
-        if (rx_byte == SOF_SEQ[0]) {
+        if (rx_byte == protocol::SOF_SEQ[0]) {
           decoder_state = DATA_DESTUFF_END;
         } else {
           decoder_state = SOF;
         }
       } else {
-        if (rx_byte == SOF_SEQ[0]) {
+        if (rx_byte == protocol::SOF_SEQ[0]) {
           decoder_state = DATA_DESTUFF;
         }
       }
@@ -172,9 +172,9 @@ void Telemetry::process_received_data() {
 
 void Telemetry::process_received_packet() {
   uint8_t opcode = received_packet.read_uint8();
-  if (opcode == OPCODE_DATA) {
+  if (opcode == protocol::OPCODE_DATA) {
     uint8_t data_id = received_packet.read_uint8();
-    while (data_id != DATAID_TERMINATOR) {
+    while (data_id != protocol::DATAID_TERMINATOR) {
       if (data_id < data_count + 1) {
         data[data_id - 1]->set_from_packet(received_packet);
       } else {

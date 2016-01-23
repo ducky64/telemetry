@@ -17,6 +17,9 @@ const size_t MAX_DATA_PER_TELEMETRY = TELEMETRY_DATA_LIMIT;
 
 // Maximum payload size for a received telemetry packet.
 const size_t MAX_RECEIVE_PACKET_LENGTH = 255;
+
+// Time after which a partially received packet is discarded.
+const uint32_t DECODER_TIMEOUT_MS = 100;
 }
 
 #ifdef ARDUINO
@@ -60,12 +63,12 @@ public:
   virtual size_t get_header_kvrs_length();
   // Writes the header KVRs to the transmit packet. Does not write the
   // terminiator header.
-  virtual void write_header_kvrs(TransmitPacketInterface& packet);
+  virtual void write_header_kvrs(TransmitPacket& packet);
 
   // Returns the length of the payload, in bytes. Should be "fast".
   virtual size_t get_payload_length() = 0;
   // Writes the payload to the transmit packet. Should be "fast".
-  virtual void write_payload(TransmitPacketInterface& packet) = 0;
+  virtual void write_payload(TransmitPacket& packet) = 0;
 
   // Sets my value from the received packet, interpreting the current packet
   // read position as my data type.
@@ -194,7 +197,7 @@ public:
     return *this;
   }
 
-  uint8_t get_data_type() { return DATATYPE_NUMERIC; }
+  uint8_t get_data_type() { return protocol::DATATYPE_NUMERIC; }
 
   size_t get_header_kvrs_length() {
     return Data::get_header_kvrs_length()
@@ -203,24 +206,24 @@ public:
         + 1 + sizeof(value) + sizeof(value);  // limits
   }
 
-  void write_header_kvrs(TransmitPacketInterface& packet) {
+  void write_header_kvrs(TransmitPacket& packet) {
     Data::write_header_kvrs(packet);
-    packet.write_uint8(RECORDID_NUMERIC_SUBTYPE);
+    packet.write_uint8(protocol::RECORDID_NUMERIC_SUBTYPE);
     packet.write_uint8(protocol::numeric_subtype<T>());
-    packet.write_uint8(RECORDID_NUMERIC_LENGTH);
+    packet.write_uint8(protocol::RECORDID_NUMERIC_LENGTH);
     packet.write_uint8(sizeof(value));
-    packet.write_uint8(RECORDID_NUMERIC_LIMITS);
+    packet.write_uint8(protocol::RECORDID_NUMERIC_LIMITS);
     serialize_data(min_val, packet);
     serialize_data(max_val, packet);
   }
 
   size_t get_payload_length() { return sizeof(value); }
-  void write_payload(TransmitPacketInterface& packet) { serialize_data(value, packet); }
+  void write_payload(TransmitPacket& packet) { serialize_data(value, packet); }
   void set_from_packet(ReceivePacketBuffer& packet) {
     value = deserialize_data(packet);
     telemetry_container.mark_data_updated(data_id); }
 
-  void serialize_data(T value, TransmitPacketInterface& packet) {
+  void serialize_data(T value, TransmitPacket& packet) {
     packet.write<T>(value);
   }
   T deserialize_data(ReceivePacketBuffer& packet) {
@@ -268,7 +271,7 @@ public:
     return *this;
   }
 
-  uint8_t get_data_type() { return DATATYPE_NUMERIC_ARRAY; }
+  uint8_t get_data_type() { return protocol::DATATYPE_NUMERIC_ARRAY; }
 
   size_t get_header_kvrs_length() {
     return Data::get_header_kvrs_length()
@@ -278,27 +281,27 @@ public:
         + 1 + sizeof(value[0]) + sizeof(value[0]);  // limits
   }
 
-  void write_header_kvrs(TransmitPacketInterface& packet) {
+  void write_header_kvrs(TransmitPacket& packet) {
     Data::write_header_kvrs(packet);
-    packet.write_uint8(RECORDID_NUMERIC_SUBTYPE);
+    packet.write_uint8(protocol::RECORDID_NUMERIC_SUBTYPE);
     packet.write_uint8(protocol::numeric_subtype<T>());
-    packet.write_uint8(RECORDID_NUMERIC_LENGTH);
+    packet.write_uint8(protocol::RECORDID_NUMERIC_LENGTH);
     packet.write_uint8(sizeof(value[0]));
-    packet.write_uint8(RECORDID_ARRAY_COUNT);
+    packet.write_uint8(protocol::RECORDID_ARRAY_COUNT);
     packet.write_uint32(array_count);
-    packet.write_uint8(RECORDID_NUMERIC_LIMITS);
+    packet.write_uint8(protocol::RECORDID_NUMERIC_LIMITS);
     serialize_data(min_val, packet);
     serialize_data(max_val, packet);
   }
 
   size_t get_payload_length() { return sizeof(value); }
-  void write_payload(TransmitPacketInterface& packet) {
+  void write_payload(TransmitPacket& packet) {
     for (size_t i=0; i<array_count; i++) { serialize_data(this->value[i], packet); } }
   void set_from_packet(ReceivePacketBuffer& packet) {
     for (size_t i=0; i<array_count; i++) { value[i] = deserialize_data(packet); }
     telemetry_container.mark_data_updated(data_id); }
 
-  void serialize_data(T data, TransmitPacketInterface& packet) {
+  void serialize_data(T data, TransmitPacket& packet) {
     packet.write<T>(data); }
   T deserialize_data(ReceivePacketBuffer& packet) {
     return packet.read<T>(); }

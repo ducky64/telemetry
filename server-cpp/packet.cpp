@@ -7,19 +7,18 @@
 namespace telemetry {
 
 namespace internal {
-  template<> void pkt_write<uint8_t>(TransmitPacketInterface& interface, uint8_t data) {
+  template<> void pkt_write<uint8_t>(TransmitPacket& interface, uint8_t data) {
     interface.write_uint8(data);
   }
-  template<> void pkt_write<uint16_t>(TransmitPacketInterface& interface, uint16_t data) {
+  template<> void pkt_write<uint16_t>(TransmitPacket& interface, uint16_t data) {
     interface.write_uint16(data);
   }
-  template<> void pkt_write<uint32_t>(TransmitPacketInterface& interface, uint32_t data) {
+  template<> void pkt_write<uint32_t>(TransmitPacket& interface, uint32_t data) {
     interface.write_uint32(data);
   }
-  template<> void pkt_write<float>(TransmitPacketInterface& interface, float data) {
+  template<> void pkt_write<float>(TransmitPacket& interface, float data) {
     interface.write_float(data);
   }
-
 
   template<> uint8_t buf_read<uint8_t>(ReceivePacketBuffer& buffer) {
     return buffer.read_float();
@@ -40,8 +39,9 @@ FixedLengthTransmitPacket::FixedLengthTransmitPacket(HalInterface& hal,
         hal(hal),
         length(length),
         count(0) {
-  hal.transmit_byte(SOF1);
-  hal.transmit_byte(SOF2);
+  for (int i=0; i<protocol::SOF_LENGTH; i++) {
+    hal.transmit_byte(protocol::SOF_SEQ[i]);
+  }
 
   hal.transmit_byte((length >> 8) & 0xff);
   hal.transmit_byte((length >> 0) & 0xff);
@@ -58,8 +58,11 @@ void FixedLengthTransmitPacket::write_byte(uint8_t data) {
     return;
   }
   hal.transmit_byte(data);
-  if (data == SOF1) {
-    hal.transmit_byte(0x00);  // TODO: proper abstraction and magic numbers
+#if SOF_LENGTH > 2
+#error "Byte stuffing algorithm does not work for SOF_LENGTH > 2"
+#endif
+  if (data == protocol::SOF_SEQ[0]) {
+    hal.transmit_byte(protocol::SOF_SEQ0_STUFF);
   }
   count++;
 }

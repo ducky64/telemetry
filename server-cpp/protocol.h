@@ -1,15 +1,19 @@
 /**
- * Telemetry protocol defines.
+ * Telemetry wire protocol constants.
  */
 
 #ifndef _PROTOCOL_H_
 #define _PROTOCOL_H_
 
 namespace telemetry {
-// Various wire protocol constants.
-const uint8_t SOF1 = 0x05;  // start of frame byte 1
-const uint8_t SOF2 = 0x39;  // start of frame byte 2
+
+namespace protocol {
+
+// Start of frame sequence.
 const uint8_t SOF_SEQ[] = {0x05, 0x39};
+const uint8_t SOF_LENGTH = sizeof(SOF_SEQ) / sizeof(SOF_SEQ[0]);
+// A dummy byte to "stuff" when the start of frame shows up in the data.
+const uint8_t SOF_SEQ0_STUFF = 0x00;
 
 const size_t LENGTH_SIZE = 2;
 
@@ -39,10 +43,6 @@ const uint8_t RECORDID_ARRAY_COUNT = 0x50;
 const uint8_t NUMERIC_SUBTYPE_UINT = 0x01;
 const uint8_t NUMERIC_SUBTYPE_SINT = 0x02;
 const uint8_t NUMERIC_SUBTYPE_FLOAT = 0x03;
-
-const uint32_t DECODER_TIMEOUT_MS = 100;
-
-namespace protocol {
 
 /**
  * Returns the subtype field value for a numeric recordid.

@@ -2,20 +2,20 @@
 #define _PACKET_H_
 
 namespace telemetry {
-class TransmitPacketInterface;
+class TransmitPacket;
 class ReceivePacketBuffer;
 
 namespace internal {
-  template<typename T> void pkt_write(TransmitPacketInterface& interface, T data);
+  template<typename T> void pkt_write(TransmitPacket& interface, T data);
   template<typename T> T buf_read(ReceivePacketBuffer& buffer);
 }
 
 // Abstract base class for building a packet to be transmitted.
 // Implementation is unconstrained - writes may either be buffered or passed
 // directly to the hardware transmit buffers.
-class TransmitPacketInterface {
+class TransmitPacket {
 public:
-  virtual ~TransmitPacketInterface() {}
+  virtual ~TransmitPacket() {}
 
   // Writes a 8-bit unsigned integer to the packet stream.
   virtual void write_uint8(uint8_t data) = 0;
@@ -71,7 +71,7 @@ protected:
 // A telemetry packet with a length known before data is written to it.
 // Data is written directly to the hardware transmit buffers without packet
 // buffering. Assumes transmit buffers won't fill up.
-class FixedLengthTransmitPacket : public TransmitPacketInterface {
+class FixedLengthTransmitPacket : public TransmitPacket {
 public:
   FixedLengthTransmitPacket(HalInterface& hal, size_t length);
 
