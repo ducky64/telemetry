@@ -108,21 +108,21 @@ void Telemetry::process_received_data() {
   uint32_t current_time = hal.get_time_ms();
 
   if (decoder_last_receive_ms <= current_time) {
-	if (!decoder_last_received && decoder_state != SOF && decoder_pos != 0
-		&& (decoder_last_receive_ms - current_time > DECODER_TIMEOUT_MS)) {
-	  decoder_pos = 0;
-	  packet_length = 0;
-	  decoder_state = SOF;
-	  hal.do_error("RX timeout");
-	}
+    if (!decoder_last_received && decoder_state != SOF && decoder_pos != 0
+        && (decoder_last_receive_ms - current_time > DECODER_TIMEOUT_MS)) {
+      decoder_pos = 0;
+      packet_length = 0;
+      decoder_state = SOF;
+      hal.do_error("RX timeout");
+    }
   } else {
-	// timer overflowed, do nothing
+    // timer overflowed, do nothing
   }
   decoder_last_receive_ms = current_time;
 
   decoder_last_received = false;
   while (hal.rx_available()) {
-	decoder_last_received = true;
+    decoder_last_received = true;
 
     uint8_t rx_byte = hal.receive_byte();
 
@@ -135,8 +135,14 @@ void Telemetry::process_received_data() {
           decoder_state = LENGTH;
         }
       } else {
+        if (decoder_pos > 0) {
+          // Pass through any partial SOF sequence.
+          for (uint8_t i=0; i<decoder_pos; i++) {
+            rx_buffer.enqueue(protocol::SOF_SEQ[i]);
+          }
+        }
         decoder_pos = 0;
-        // TODO: pass rest of data through
+        rx_buffer.enqueue(rx_byte);
       }
     } else if (decoder_state == LENGTH) {
       packet_length = (packet_length << 8) | rx_byte;
@@ -188,13 +194,16 @@ void Telemetry::process_received_packet() {
 }
 
 size_t Telemetry::receive_available() {
-  // TODO: implement me
-  return 0;
+  return !rx_buffer.empty();
 }
 
 uint8_t Telemetry::read_receive() {
-  // TODO: implement me
-  return 0;
+  uint8_t rx_data = '#';
+  if (rx_buffer.dequeue(&rx_data)) {
+    return rx_data;
+  } else {
+    return 255;
+  }
 }
 
 }

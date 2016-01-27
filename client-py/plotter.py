@@ -379,6 +379,19 @@ if __name__ == "__main__":
       else:
         return
 
+  def on_exit(event):
+      print("Figured closed, exiting.")
+      sys.exit()
+
   fig.canvas.mpl_connect('button_press_event', on_click)
+  fig.canvas.mpl_connect('close_event', on_exit)
   ani = animation.FuncAnimation(fig, update, interval=30)
-  plt.show()
+  plt.ion()
+  plt.draw()
+
+  while True:
+    user_in = raw_input("Serial command to send: ")
+    # TODO: proper sync semantics
+    telemetry.serial.write(user_in)
+    telemetry.serial.write('\n')
+
