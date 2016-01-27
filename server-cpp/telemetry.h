@@ -10,6 +10,10 @@
 #define TELEMETRY_DATA_LIMIT 16
 #endif
 
+#ifndef TELEMETRY_SERIAL_RX_BUFFER_SIZE
+#define TELEMETRY_SERIAL_RX_BUFFER_SIZE 256
+#endif
+
 namespace telemetry {
 // Maximum number of Data objects a Telemetry object can hold.
 // Used for array sizing.
@@ -20,6 +24,9 @@ const size_t MAX_RECEIVE_PACKET_LENGTH = 255;
 
 // Time after which a partially received packet is discarded.
 const uint32_t DECODER_TIMEOUT_MS = 100;
+
+// Buffer size for received non-telemetry data.
+const size_t SERIAL_RX_BUFFER_SIZE = TELEMETRY_SERIAL_RX_BUFFER_SIZE;
 }
 
 #ifdef ARDUINO
@@ -42,6 +49,7 @@ const uint32_t DECODER_TIMEOUT_MS = 100;
 
 #include "protocol.h"
 #include "packet.h"
+#include "queue.h"
 
 namespace telemetry {
 // Abstract base class for telemetry data objects.
@@ -90,8 +98,8 @@ public:
     decoder_state(SOF),
     decoder_pos(0),
     packet_length(0),
-	decoder_last_received(false),
-	decoder_last_receive_ms(0),
+	  decoder_last_received(false),
+	  decoder_last_receive_ms(0),
     header_transmitted(false),
     packet_tx_sequence(0),
     packet_rx_sequence(0) {};
@@ -112,8 +120,8 @@ public:
   void do_io();
 
   // TODO: better docs defining in-band receive.
-  // Returns the number of bytes available in the receive stream.
-  size_t receive_available();
+  // Returns whether or not read_receive will return valid data.
+  bool receive_available();
   // Returns the next byte in the receive stream.
   uint8_t read_receive();
 
@@ -158,6 +166,8 @@ protected:
   size_t packet_length;
   bool decoder_last_received;
   uint32_t decoder_last_receive_ms;
+
+  Queue<uint8_t, SERIAL_RX_BUFFER_SIZE> rx_buffer;
 
   bool header_transmitted;
 
