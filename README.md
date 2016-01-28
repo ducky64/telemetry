@@ -92,6 +92,8 @@ After instantiating a data object, you can also optionally specify additional pa
 - `Numeric` can have the limits set. The plotter GUI will set the plot bounds / waterfall intensity bounds if this is set, otherwise it will autoscale. This does NOT affect the embedded code, values will not be clipped.
   - `tele_motor_pwm.set_limits(0.0, 1.0); // lower bound, upper bound`
 
+Note that there is a limit on how many data objects any telemetry object can have (this is used to size some internal data structures). This can be set by compiler-defining `TELEMETRY_DATA_LIMIT`. The default is 16.
+
 Once the data objects have been set up, transmit the data definitions:
 ```c++
 telemetry_obj.transmit_header();
@@ -112,6 +114,31 @@ telemetry_obj.do_io();
 
 You can continue using the UART to transmit other data (like with `printf`s) as long as this doesn't happen during a `Telemetry` `do_io()` operation (which will corrupt the sent data) or contain a start-of-frame sequence (`0x05, 0x39`).
 
+You can also use the UART to receive non-telemetry data, which is made available through `Telemetry`'s `receive_available()` and `read_receive()`. `receive_available()` will return `true` if there is received data in the buffer. `read_receive()` will return the next byte in the receive buffer (if the buffer is empty, the return is undefined - don't do it). The internal receive buffer size can be set by compiler-defining `TELEMETRY_SERIAL_RX_BUFFER_SIZE`. The default is 256 bytes.
+
+One usage of this is to allow using a serial console side-by-side with the telemetry framework. An example to get commands from the console with a newline as the delimiter is:
+```c++
+const size_t bufsize = 256;
+char inbuf[bufsize];  // receive buffer allocation
+char* inptr = inbuf;  // next received byte pointer
+
+while (telemetry_obj.receive_available()) {
+  uint8_t rx = telemetry_obj.read_receive();
+  if (rx == '\n') {
+    *inptr = '\0';  // optionally append the string terminator
+    // do something with the contents of inbuf here
+    inptr = inbuf;  // reset the received byte pointer
+  } else {
+    *inptr = rx;
+    inptr++;  // advance the received byte pointer
+    if (inptr >= inbuf + bufsize) {
+      // you should emit some helpful error on overflow
+      inptr = inbuf;  // reset the received byte pointer, discarding what we have
+    }
+  }
+}
+```
+
 ### Plotter GUI Usage
 The plotter is located in `telemetry/client-py/plotter.py` and can be directly executed using Python. The arguments can be obtained by running it with `--help`:
 - Serial port: like COM1 for Windows or /dev/ttyUSB0 or /dev/ttyACM0 for Linux.
@@ -121,9 +148,9 @@ The plotter is located in `telemetry/client-py/plotter.py` and can be directly e
 
 The plotter must be running when the header is transmitted, otherwise it will fail to decode the data packets (and notify you of such). The plotter will automatically reinitialize upon receiving a new header.
 
-This simple plotter graphs all the data against a selected independent variable (like time). Numeric data is plotted as a line graph and array-numeric data is plotted as a waterfall / spectrograph-style graph. Regular UART data (like from `printf`s) will be routed to the console. All received data, including from `printf`s, is logged to a CSV. A new CSV is created each time a new header packet is received, with a timestamped filename.
+This simple plotter graphs all the data against a selected independent variable (like time). Numeric data is plotted as a line graph and array-numeric data is plotted as a waterfall / spectrograph-style graph. Regular UART data (like from `printf`s) will be routed to the console. All received data, including from `printf`s, is logged to a CSV. A new CSV is created each time a new header packet is received, with a timestamped filename. This can be disabled by giving an empty filename prefix.
 
-You can double-click a plot to inspect its latest value numerically and optionally remotely set it to a new value.
+You can double-click a plot to inspect its latest value numerically and optionally remotely set it to a new value. You can also send non-telemetry data by typing in the console (should have a `Serial command to send: ` prompt); note that data is buffered (not sent) until you hit enter. A newline (`\n`) is included at the end of whatever you type.
 
 If you feel really adventurous, you can also try to mess with the code to plot things in different styles. For example, the plot instantiation function from a received header packet is in `subplots_from_header`. The default just creates a line plot for numeric data and a waterfall plot for array-numeric data. You can make it do fancier things, like overlay a numerical detected track position on the raw camera waterfall plot.
 
@@ -135,11 +162,8 @@ Bandwidth limits: the amount of data you can send is limited by your microcontro
 ## Future Work
 These are planned features for the very near future:
 
-### Transmitter Library
-- Code cleanup.
-- Asynchronous `gets` for mbed RPC compatibility.
-
 ### Plotter GUI
+- Major code cleanup.
 - Multiple visualizations styles (including single-frame mode for arrays).
 
 ## Known Issues
