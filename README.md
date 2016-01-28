@@ -39,7 +39,7 @@ On Debian-based platforms, including Ubuntu, the installation commands for the n
 `TODO: commands`
 
 ### Transmitter library setup
-Transmitter library sources are in `telemetry/server-cpp`. Add the folder to your include search directory and add all the `.cpp` files to your build. Your platform should be automatically detected based on common `#define`s, like `ARDUINO` for Arduino targets and `TOOLCHAIN_GCC_ARM` for mbed targets.
+Transmitter library sources are in `telemetry/server-cpp`. Add the folder to your include search directory and add all the `.cpp` files to your build. Your platform should be automatically detected based on common `#define`s, like `ARDUINO` for Arduino targets and `__MBED__` for mbed targets.
 
 For those using a [SCons](http://scons.org/)-based build system, a SConscript file is also included which defines a static library.
 

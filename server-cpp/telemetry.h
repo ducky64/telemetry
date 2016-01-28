@@ -36,7 +36,7 @@ const size_t SERIAL_RX_BUFFER_SIZE = TELEMETRY_SERIAL_RX_BUFFER_SIZE;
   #include "telemetry-arduino-hal.h"
 #endif
 
-#if defined(__ARMCC_VERSION) || defined(TOOLCHAIN_GCC_ARM)
+#if defined(__MBED__)
   #ifdef TELEMETRY_HAL
     #error "Multiple telemetry HALs defined"
   #endif
