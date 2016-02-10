@@ -1,4 +1,6 @@
 from __future__ import print_function
+from builtins import input
+
 import ast
 from collections import deque
 import csv
@@ -204,6 +206,7 @@ def subplots_from_header(packet, figure, indep_def, indep_span=10000):
 
     print("Found dependent data %s" % data_def.internal_name)
 
+  print("Parsed header")
   return plots_dict
 
 class CsvLogger(object):
@@ -390,8 +393,8 @@ if __name__ == "__main__":
   plt.draw()
 
   while True:
-    user_in = raw_input("Serial command to send: ")
+    user_in = input("Serial command to send: ").encode()
     # TODO: proper sync semantics
     telemetry.serial.write(user_in)
-    telemetry.serial.write('\n')
+    telemetry.serial.write('\n'.encode())
 

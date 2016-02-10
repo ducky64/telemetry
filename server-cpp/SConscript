@@ -11,12 +11,12 @@
 #
 # Returns:
 # - a static library to be included in your program
+#
+# The telemetry headers will be automatically added to the environment CPPPATH.
 
 Import('env')
 
-env = env.Clone()
-
-env.Append(CPPPATH = ['.'])
+env.Append(CPPPATH = [Dir('.')])
 
 lib = env.StaticLibrary('telemetry', Glob('*.cpp'))
 
