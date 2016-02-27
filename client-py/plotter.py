@@ -282,7 +282,7 @@ if __name__ == "__main__":
                       help='internal name of independent axis')
   parser.add_argument('--span', '-s', type=int, default=10000,
                       help='independent variable axis span')
-  parser.add_argument('--merge', '-m', nargs='+',
+  parser.add_argument('--merge', '-m', nargs='+', default=[],
                       help='*EXPERIMETAL* comma-separates names of data to merge into a single plot')
   parser.add_argument('--log_filename_prefix', '-f', default='telemetry',
                       help='filename prefix for logging output, set to empty to disable logging')
