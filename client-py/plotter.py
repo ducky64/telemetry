@@ -168,7 +168,7 @@ plot_registry[NumericArray] = WaterfallPlot
 def data_def_title(data_def):
   return "%s: %s (%s)" % (data_def.internal_name, data_def.display_name, data_def.units)
 
-def subplots_from_header(packet, figure, indep_def, indep_span=10000, merge_data_names_to_sets={}):
+def subplots_from_header(packet, figure, indep_def, indep_span=10000, merge_data_names_to_sets={}, hide_data=[]):
   """Instantiate subplots and plots from a received telemetry HeaderPacket.
   The default implementation creates a new plot for each dependent variable,
   but you can customize it to do better things.
@@ -192,6 +192,8 @@ def subplots_from_header(packet, figure, indep_def, indep_span=10000, merge_data
   for _, data_def in reversed(sorted(packet.get_data_defs().items())):
     data_name = data_def.internal_name
     if data_def == indep_def:
+      continue
+    if data_def.internal_name in hide_data:
       continue
 
     if data_name in merge_data_names_to_sets:
@@ -284,6 +286,8 @@ if __name__ == "__main__":
                       help='independent variable axis span')
   parser.add_argument('--merge', '-m', nargs='+', default=[],
                       help='*EXPERIMETAL* comma-separates names of data to merge into a single plot')
+  parser.add_argument('--hide', nargs='+', default=[],
+                      help='*EXPERIMETAL* names of data to hide')
   parser.add_argument('--log_filename_prefix', '-f', default='telemetry',
                       help='filename prefix for logging output, set to empty to disable logging')
   args = parser.parse_args()
@@ -326,7 +330,7 @@ if __name__ == "__main__":
         # TODO warn on missing indep id or duplicates
 
         # instantiate plots
-        plots_dict[0] = subplots_from_header(packet, fig, indep_def[0], args.span, merge_data_names_to_sets)
+        plots_dict[0] = subplots_from_header(packet, fig, indep_def[0], args.span, merge_data_names_to_sets, args.hide)
         plt.show()
 
         # prepare CSV file and headers
