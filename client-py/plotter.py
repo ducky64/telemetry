@@ -60,7 +60,7 @@ class BasePlot(object):
     raise NotImplementedError
 
   def get_name(self):
-    return self.dep_def.display_name
+    return "%s: %s (%s)" % (self.dep_def.internal_name, self.dep_def.display_name, self.dep_def.units)
 
   def get_dep_def(self):
     return self.dep_def
@@ -165,8 +165,10 @@ plot_registry = {}
 plot_registry[NumericData] = NumericPlot
 plot_registry[NumericArray] = WaterfallPlot
 
+def data_def_title(data_def):
+  return "%s: %s (%s)" % (data_def.internal_name, data_def.display_name, data_def.units)
 
-def subplots_from_header(packet, figure, indep_def, indep_span=10000):
+def subplots_from_header(packet, figure, indep_def, indep_span=10000, merge_data_names_to_sets={}):
   """Instantiate subplots and plots from a received telemetry HeaderPacket.
   The default implementation creates a new plot for each dependent variable,
   but you can customize it to do better things.
@@ -185,26 +187,42 @@ def subplots_from_header(packet, figure, indep_def, indep_span=10000):
     print("No independent variable")
     return [], []
 
-  data_defs = []
+  subplots = []
+  merged_sets_to_plots_list = {}
   for _, data_def in reversed(sorted(packet.get_data_defs().items())):
-    if data_def != indep_def:
-      data_defs.append(data_def)
+    data_name = data_def.internal_name
+    if data_def == indep_def:
+      continue
+
+    if data_name in merge_data_names_to_sets:
+      merged_set = merge_data_names_to_sets[data_name]
+      if merged_set in merged_sets_to_plots_list:
+        merged_sets_to_plots_list[merged_set].append(data_def)
+      else:
+        merged_plots_list = [data_def]
+        subplots.append(merged_plots_list)
+        merged_sets_to_plots_list[merged_set] = merged_plots_list
+    else:
+      subplots.append([data_def])
 
   plots_dict = {}
 
-  for plot_idx, data_def in enumerate(data_defs):
-    ax = figure.add_subplot(len(data_defs), 1, len(data_defs)-plot_idx)
-    ax.set_title("%s: %s (%s)"
-        % (data_def.internal_name, data_def.display_name, data_def.units))
+  for plot_idx, data_defs in enumerate(subplots):
+    ax = figure.add_subplot(len(subplots), 1, len(subplots)-plot_idx)
+    for data_def in data_defs:
+      assert data_def.__class__ in plot_registry, "Unable to handle TelemetryData type %s" % data_def.__class__.__name__
+      plot = plot_registry[data_def.__class__](ax, indep_def, data_def,
+                                               indep_span)
+      if ax not in plots_dict:
+        plots_dict[ax] = []
+      plots_dict[ax].append(plot)
+    title = ", ".join([data_def_title(x) for x in data_defs])
+    ax.set_title(title)
+
     if plot_idx != 0:
       plt.setp(ax.get_xticklabels(), visible=False)
 
-    assert data_def.__class__ in plot_registry, "Unable to handle TelemetryData type %s" % data_def.__class__.__name__
-    plot = plot_registry[data_def.__class__](ax, indep_def, data_def,
-                                             indep_span)
-    plots_dict[ax] = [plot]
-
-    print("Found dependent data %s" % data_def.internal_name)
+    print("Created plot for %s" % data_def.internal_name)
 
   print("Parsed header")
   return plots_dict
@@ -264,6 +282,8 @@ if __name__ == "__main__":
                       help='internal name of independent axis')
   parser.add_argument('--span', '-s', type=int, default=10000,
                       help='independent variable axis span')
+  parser.add_argument('--merge', '-m', nargs='+',
+                      help='*EXPERIMETAL* comma-separates names of data to merge into a single plot')
   parser.add_argument('--log_filename_prefix', '-f', default='telemetry',
                       help='filename prefix for logging output, set to empty to disable logging')
   args = parser.parse_args()
@@ -271,14 +291,20 @@ if __name__ == "__main__":
 
   telemetry = TelemetrySerial(serial.Serial(args.port, args.baud))
 
-  fig = plt.figure()
-
   # note: mutable elements are in lists to allow access from nested functions
   indep_def = [None]  # note: data ID 0 is invalid
   latest_indep = [0]
   plots_dict = [[]]
 
   csv_logger = [None]
+
+  # parse args.merge into a more usable format, a dict of data internal names to sets
+  merge_data_names_to_sets = {}
+  for merge_data_names in args.merge:
+    this_merge_set = tuple(sorted(merge_data_names.split(',')))
+    for merge_data_name in this_merge_set:
+      assert merge_data_name not in merge_data_names_to_sets  # sets must be disjoint
+      merge_data_names_to_sets[merge_data_name] = this_merge_set
 
   def update(data):
     telemetry.process_rx()
@@ -300,7 +326,8 @@ if __name__ == "__main__":
         # TODO warn on missing indep id or duplicates
 
         # instantiate plots
-        plots_dict[0] = subplots_from_header(packet, fig, indep_def[0], args.span)
+        plots_dict[0] = subplots_from_header(packet, fig, indep_def[0], args.span, merge_data_names_to_sets)
+        plt.show()
 
         # prepare CSV file and headers
         timestring = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -386,9 +413,12 @@ if __name__ == "__main__":
       print("Figured closed, exiting.")
       sys.exit()
 
+  fig = plt.figure()
+
   fig.canvas.mpl_connect('button_press_event', on_click)
   fig.canvas.mpl_connect('close_event', on_exit)
   ani = animation.FuncAnimation(fig, update, interval=30)
+
   plt.ion()
   plt.draw()
 
