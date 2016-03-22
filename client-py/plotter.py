@@ -19,7 +19,7 @@ import matplotlib.animation as animation
 import numpy as np
 import serial
 
-from telemetry.parser import TelemetrySerial, DataPacket, HeaderPacket, NumericData, NumericArray
+from telemetry.parser import TelemetrySerialSerial, TelemetrySocketSerial, TelemetrySerial, DataPacket, HeaderPacket, NumericData, NumericArray
 
 class BasePlot(object):
   """Base class / interface definition for telemetry plotter plots with a
@@ -292,8 +292,9 @@ if __name__ == "__main__":
                       help='filename prefix for logging output, set to empty to disable logging')
   args = parser.parse_args()
 
-
-  telemetry = TelemetrySerial(serial.Serial(args.port, args.baud))
+  # serial_hal = TelemetrySocketSerial(args.port)
+  serial_hal = TelemetrySerialSerial(args.port, args.baud)
+  telemetry = TelemetrySerial(serial_hal)
 
   # note: mutable elements are in lists to allow access from nested functions
   indep_def = [None]  # note: data ID 0 is invalid

@@ -386,6 +386,53 @@ class TelemetryContext(object):
     else:
       return None
 
+import serial
+
+class TelemetrySerialHal(object):
+  def rx_available(self):
+    pass
+
+  def next_rx_byte(self):
+    pass
+
+  def tx(self):
+    pass
+
+class TelemetrySerialSerial(object):
+  def __init__(self, port, baud):
+    self.serial = serial.Serial(port, baud)
+
+  def rx_available(self):
+    return self.serial.inWaiting()
+
+  def next_rx_byte(self):
+    return ord(self.serial.read())
+
+  def tx(self, data):
+    self.serial.write(data)
+
+import socket
+
+class TelemetrySocketSerial(object):
+  def __init__(self, addr, port=23):
+    self.sock = socket.socket()
+    self.sock.connect((addr, port))
+    self.sock.setblocking(False)
+
+    self.buffer = deque()
+
+  def rx_available(self):
+    try:
+      self.buffer.extend(self.sock.recv(1024))
+    except socket.error:
+      pass
+    return self.buffer
+
+  def next_rx_byte(self):
+    return self.buffer.popleft()
+
+  def tx(self, data):
+    self.sock.send(data)
 
 
 class TelemetrySerial(object):
@@ -425,11 +472,11 @@ class TelemetrySerial(object):
 
     self.last_loop_received = False
 
-    while self.serial.inWaiting():
+    while self.serial.rx_available():
       self.last_loop_received = True
       self.last_receive_time = time.time()
 
-      rx_byte = ord(self.serial.read())
+      rx_byte = self.serial.next_rx_byte()
       if self.decoder_state == self.DecoderState.SOF:
         self.packet_buffer.append(rx_byte)
 
@@ -501,7 +548,7 @@ class TelemetrySerial(object):
       if packet_byte == SOF_BYTE[0]:
         modified_packet.append(0x00)
 
-    self.serial.write(header + modified_packet)
+    self.serial.tx(header + modified_packet)
 
     # TODO: add CRC support
 
