@@ -430,6 +430,6 @@ if __name__ == "__main__":
   while True:
     user_in = input("Serial command to send: ").encode()
     # TODO: proper sync semantics
-    telemetry.serial.write(user_in)
-    telemetry.serial.write('\n'.encode())
+    telemetry.serial.tx(user_in)
+    telemetry.serial.tx('\n'.encode())
 
