@@ -22,7 +22,7 @@ void MbedHal::transmit_byte(uint8_t data) {
 
 size_t MbedHal::rx_available() {
   if (serial != NULL) {
-    return serial->rxBufferGetCount();
+    return serial->readable();
   } else {
 	return 0;
   }

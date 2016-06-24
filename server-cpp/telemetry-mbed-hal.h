@@ -4,7 +4,6 @@
  */
 
 #include "mbed.h"
-#include "MODSERIAL.h"
 
 #include "telemetry-hal.h"
 
@@ -17,7 +16,7 @@ namespace telemetry {
 
 class MbedHal : public HalInterface {
 public:
-  MbedHal(MODSERIAL& serial_in) :
+  MbedHal(Serial& serial_in) :
     serial(&serial_in) {
 	  timer.start();
   }
@@ -26,7 +25,7 @@ public:
   	  timer.start();
   }
 
-  void set_serial(MODSERIAL& serial_new) {
+  void set_serial(Serial& serial_new) {
 	serial = &serial_new;
   }
 
@@ -39,7 +38,7 @@ public:
   virtual uint32_t get_time_ms();
 
 protected:
-  MODSERIAL* serial;
+  Serial* serial;
   Timer timer;
 };
 
