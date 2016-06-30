@@ -13,6 +13,10 @@
 
 namespace telemetry {
 
+uint32_t MbedHalBase::get_time_ms() {
+  return timer.read_ms();
+}
+
 void MbedHal::transmit_byte(uint8_t data) {
   // TODO: optimize with DMA
   serial.putc(data);
@@ -31,8 +35,22 @@ void MbedHal::do_error(const char* msg) {
   serial.puts("\r\n");
 }
 
-uint32_t MbedHal::get_time_ms() {
-  return timer.read_ms();
+void MbedRawSerialHal::transmit_byte(uint8_t data) {
+  // TODO: optimize with DMA
+  serial.putc(data);
+}
+
+size_t MbedRawSerialHal::rx_available() {
+  return serial.readable();
+}
+
+uint8_t MbedRawSerialHal::receive_byte() {
+  return serial.getc();
+}
+
+void MbedRawSerialHal::do_error(const char* msg) {
+  serial.puts(msg);
+  serial.puts("\r\n");
 }
 
 }

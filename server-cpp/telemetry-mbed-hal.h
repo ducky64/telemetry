@@ -14,11 +14,22 @@
 
 namespace telemetry {
 
-class MbedHal : public HalInterface {
+class MbedHalBase : public HalInterface {
 public:
-  MbedHal(RawSerial& serial_in) :
-    serial(serial_in) {
-	  timer.start();
+  MbedHalBase() {
+    timer.start();
+  }
+
+  uint32_t get_time_ms();
+
+protected:
+  Timer timer;
+};
+
+class MbedHal : public MbedHalBase {
+public:
+  MbedHal(Serial& serial_in) :
+    MbedHalBase(), serial(serial_in) {
   }
 
   void transmit_byte(uint8_t data);
@@ -27,11 +38,24 @@ public:
 
   void do_error(const char* message);
 
-  uint32_t get_time_ms();
+protected:
+  Serial& serial;
+};
+
+class MbedRawSerialHal : public MbedHalBase {
+public:
+  MbedRawSerialHal(RawSerial& serial_in) :
+    MbedHalBase(), serial(serial_in) {
+  }
+
+  void transmit_byte(uint8_t data);
+  size_t rx_available();
+  uint8_t receive_byte();
+
+  void do_error(const char* message);
 
 protected:
   RawSerial& serial;
-  Timer timer;
 };
 
 }
