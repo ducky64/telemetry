@@ -14,48 +14,44 @@
 
 namespace telemetry {
 
+template<typename S>
 class MbedHalBase : public HalInterface {
 public:
-  MbedHalBase() {
+  MbedHalBase(S& serial_in) : serial(serial_in) {
     timer.start();
   }
 
-  uint32_t get_time_ms();
+  uint32_t get_time_ms() {
+    return timer.read_ms();
+  }
+
+  void transmit_byte(uint8_t data) {
+    // TODO: optimize with DMA
+    serial.putc(data);
+  }
+
+  size_t rx_available() {
+    return serial.readable();
+  }
+
+  uint8_t receive_byte() {
+    return serial.getc();
+  }
+
+  void do_error(const char* msg) {
+    serial.puts(msg);
+    serial.puts("\r\n");
+  }
 
 protected:
+  S& serial;
   Timer timer;
 };
 
-class MbedHal : public MbedHalBase {
-public:
-  MbedHal(Serial& serial_in) :
-    MbedHalBase(), serial(serial_in) {
-  }
-
-  void transmit_byte(uint8_t data);
-  size_t rx_available();
-  uint8_t receive_byte();
-
-  void do_error(const char* message);
-
-protected:
-  Serial& serial;
+class MbedHal : public MbedHalBase<Serial> {
 };
 
-class MbedRawSerialHal : public MbedHalBase {
-public:
-  MbedRawSerialHal(RawSerial& serial_in) :
-    MbedHalBase(), serial(serial_in) {
-  }
-
-  void transmit_byte(uint8_t data);
-  size_t rx_available();
-  uint8_t receive_byte();
-
-  void do_error(const char* message);
-
-protected:
-  RawSerial& serial;
+class MbedRawSerialHal : public MbedHalBase<RawSerial> {
 };
 
 }
