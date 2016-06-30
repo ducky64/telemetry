@@ -19,11 +19,11 @@ public:
   ArduinoHalInterface(Stream& serial) :
     serial(serial) {}
 
-  virtual void transmit_byte(uint8_t data);
-  virtual size_t rx_available();
-  virtual uint8_t receive_byte();
+  void transmit_byte(uint8_t data);
+  size_t rx_available();
+  uint8_t receive_byte();
 
-  virtual void do_error(const char* message);
+  void do_error(const char* message);
 
 protected:
   Stream& serial;

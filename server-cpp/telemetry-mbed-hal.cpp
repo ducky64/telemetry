@@ -15,33 +15,20 @@ namespace telemetry {
 
 void MbedHal::transmit_byte(uint8_t data) {
   // TODO: optimize with DMA
-  if (serial != NULL) {
-    serial->putc(data);
-  }
+  serial.putc(data);
 }
 
 size_t MbedHal::rx_available() {
-  if (serial != NULL) {
-    return serial->readable();
-  } else {
-	return 0;
-  }
-
+  return serial.readable();
 }
 
 uint8_t MbedHal::receive_byte() {
-  if (serial != NULL) {
-    return serial->getc();
-  } else {
-	return 0;
-  }
+  return serial.getc();
 }
 
 void MbedHal::do_error(const char* msg) {
-  if (serial != NULL) {
-    serial->puts(msg);
-    serial->puts("\r\n");
-  }
+  serial.puts(msg);
+  serial.puts("\r\n");
 }
 
 uint32_t MbedHal::get_time_ms() {

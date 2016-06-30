@@ -47,6 +47,8 @@ const size_t SERIAL_RX_BUFFER_SIZE = TELEMETRY_SERIAL_RX_BUFFER_SIZE;
   #error "No telemetry HAL defined"
 #endif
 
+#include "telemetry-dummy-hal.h"
+
 #include "protocol.h"
 #include "packet.h"
 #include "queue.h"
