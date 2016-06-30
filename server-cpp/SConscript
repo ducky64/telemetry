@@ -18,6 +18,8 @@ Import('env')
 
 env.Append(CPPPATH = [Dir('.').srcnode()])
 
+env = env.Clone()
+env.Append(CPPFLAGS=['-Wall', '-Werror'])
 lib = env.StaticLibrary('telemetry', Glob('*.cpp'))
 
 Return('lib')

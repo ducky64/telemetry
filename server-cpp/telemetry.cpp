@@ -37,7 +37,7 @@ void Telemetry::transmit_header() {
   }
 
   size_t packet_legnth = 2; // opcode + sequence
-  for (int data_idx = 0; data_idx < data_count; data_idx++) {
+  for (size_t data_idx = 0; data_idx < data_count; data_idx++) {
     packet_legnth += 2; // data ID, data type
     packet_legnth += data[data_idx]->get_header_kvrs_length();
     packet_legnth += 1; // terminator record id
@@ -48,7 +48,7 @@ void Telemetry::transmit_header() {
 
   packet.write_uint8(protocol::OPCODE_HEADER);
   packet.write_uint8(packet_tx_sequence);
-  for (int data_idx = 0; data_idx < data_count; data_idx++) {
+  for (size_t data_idx = 0; data_idx < data_count; data_idx++) {
     packet.write_uint8(data_idx+1);
     packet.write_uint8(data[data_idx]->get_data_type());
     data[data_idx]->write_header_kvrs(packet);
@@ -77,7 +77,7 @@ void Telemetry::transmit_data() {
   bool data_updated_local[MAX_DATA_PER_TELEMETRY];
 
   size_t packet_legnth = 2; // opcode + sequence
-  for (int data_idx = 0; data_idx < data_count; data_idx++) {
+  for (size_t data_idx = 0; data_idx < data_count; data_idx++) {
     data_updated_local[data_idx] = data_updated[data_idx];
     data_updated[data_idx] = 0;
     if (data_updated_local[data_idx]) {
@@ -91,7 +91,7 @@ void Telemetry::transmit_data() {
 
   packet.write_uint8(protocol::OPCODE_DATA);
   packet.write_uint8(packet_tx_sequence);
-  for (int data_idx = 0; data_idx < data_count; data_idx++) {
+  for (size_t data_idx = 0; data_idx < data_count; data_idx++) {
     if (data_updated_local[data_idx]) {
       packet.write_uint8(data_idx+1);
       data[data_idx]->write_payload(packet);
